@@ -1,0 +1,1 @@
+之前学习《算法导论》时候用word写然后转pdf的，格式不太一致，晚点会用markdown改写，查阅请点[这里](./proof_of_master_theorem.pdf)，如果无法查看请点击[这里](https://my.oschina.net/u/240275/blog/232763)

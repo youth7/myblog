@@ -1,0 +1,45 @@
+blockquote {
+  background: #f9f9f9;
+  border-left: 10px solid #ccc;
+  margin: 0em 0px;
+  padding: 0.5em 10px;
+  quotes: "\201C""\201D""\2018""\2019";
+  font-size:90%;
+  color: #626262
+}
+blockquote:before {
+  color: #ccc;
+  /*content: open-quote;*/
+  font-size: 4em;
+  line-height: 0.1em;
+  margin-right: 0.25em;
+  vertical-align: -0.4em;
+}
+blockquote p {
+  display: inline;
+}
+body{
+  margin-left: 10%;
+  margin-right: 10%;
+  margin-top: 30px;
+  background-color:#dbf2de;
+  
+
+}
+table
+{
+border-collapse:collapse;
+}
+table,th, td
+{
+border: 1px solid black;
+}
+code {
+    background-color: #f0f0f0;
+    font-size: 85%;
+    font-family: consolas;
+    padding: 2px;
+ 
+}
+
+
