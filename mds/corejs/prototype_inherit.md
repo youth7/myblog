@@ -86,49 +86,32 @@ console.log(c1.getPrivate());
 ```
 
 # 构造函数继承构造函数
-假设有一个构造函数`parent`，现在需要创建一种新的对象，它继承了`parent`，要怎么操作？这取决于你要继承父类的多少属性。
+假设有一个构造函数`parent`，现在需要创建一种新的对象，它继承了`parent`的所有属性，具体步骤如下：
 
-## 方式1：继承父类的**所有**属性（这才是完整的继承）
-* 首先创建新对象的构造函数`child`
-* 设置`child`的`prototype`属性，使其指向以`parent`为原型的对象
+* 继承父类的私有属性和非共享属性：首先创建新对象的构造函数`child`，它通过某种方式调用父类的构造函数
+* 继承父类的共享属性： 设置`child`的`prototype`属性，使其指向以`parent`为原型的对象（注意这里不能通过`Object.create`来创建，下面会说原因）
 * 使用`new`来调用`child`
 
-## 方式2：只继承父类的**共享**属性（非完整的继承）
-* 首先创建新对象的构造函数`child`
-* 设置`child`的`prototype`属性，使其指向以`parent.prototype`
-* 使用`new`来调用`child`
-
-## 方式3：只继承父类的**非共享**属性（非完整的继承）
-* 首先创建新对象的构造函数`child`
-* 设置`child`的`prototype`属性，使其指向`parent`
-* 使用`new`来调用`child`
-
-运行以下例子，观察用不同的方式设置`child.prototype`时的效果
+具体代码如下：
 ```JavaScript
-"use strict";
-function parent() {
-	this.name = "parent";
+function parent(myname="共享属性") {
+	const pri = "私有属性";
+	this.myname = myname;
+	this.getPrivate = function(){
+		console.log("获取私有属性");
+	}
 }
 parent.prototype.speak = function() {
-	console.log(this.name || "没有name属性");
+	console.log(this.myname);
 };
-function child() {
-	this.age = 1;
+function child(age=2, myname="子类指定") {
+	this.age = age;
+	parent.call(this, myname, 34);
 }
-//child.prototype = Object.create(new parent); //继承所有属性
-//child.prototype = parent.prototype;//只继承非共享属性
-child.prototype = Object.create(new parent);//只继承共享属性
-const c = new child();
 
-c.speak ? c.speak() : () => {
-	console.log(c.name);
-};
+child.prototype = Object.create(parent.prototype);//只继承非享属性
+var c = new child(33,44);
 ```
-
-总结（注意区分各自继承了什么对象，该对象上有何属性）：
-* 方式1继承了 **`parent`类型的对象**    
-* 方式2继承了 **`parent.prototype`**   
-* 方式3继承了 **函数`parent`**  
-
+注意上面代码中，如果你不通过`parent.call(this, myname, 34)`来调用父类构造函数，而是通过`child.prototype =new Parent()`来实现继承也是可以的，但是这样的缺陷就是**无法给父构造函数传参**，因此很多时候手动调用父类构造函数是必要的。
 
 
