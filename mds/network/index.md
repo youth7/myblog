@@ -1,1 +1,3 @@
 # [用nodejs一步一步模拟tcp协议演变](./mytcp.md)
+# [分布式系统基本原理](./distributed_principle.md)
+# [unix网络编程之socket函数](./socket_unix.md)
