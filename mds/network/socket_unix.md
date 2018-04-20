@@ -24,7 +24,7 @@ socket API是Unix上socket的对外接口，通过socket API可以灵活地操�
 int socket(int domain, int type, int protocol);
 ```
 其中各个参数的意义如下：
-* `domain`：**代表通讯所在的域**
+* `domain`：**代表通讯所在的域**，可以认为一种域代表一种socket，因此这个参数指明了socket的类型
     Unix中支持的`domain`的值和含义为：
     ```bash
     Name                Purpose                          Man page
@@ -40,10 +40,10 @@ int socket(int domain, int type, int protocol);
     AF_PACKET           Low level packet interface       packet(7)
     AF_ALG              Interface to kernel crypto API
     ```
-    可知Unix的socket API支持多种网络协议，其中`AF_UNIX`（本地IPC）、`AF_INET`（IP4）、`AF_INET6`（IP6）是最为常见的，AF是address family的缩写，INET是Internet的缩写。域在某些情况下会影响协议的选择，见`protocol`的解释。
+    可知Unix支持多种类型的socket，其中`AF_UNIX`（本地通讯）、`AF_INET`（IP4通讯）、`AF_INET6`（IP6通讯）最为常见的，`AF`是address family的缩写，`INET`是Internet的缩写。`domain`在某些情况下会影响`protocol`的值，详见`protocol`的解释。
 
 * `type` ：**代表通讯数据的语意**  
-    意味数据是通过什么方式发送的（例如流式数据还是块状数据），Unix中支持的`type`的值和含义为：
+    意味数据是通过什么方式发送的（例如流式数据还是数据报），Unix中支持的`type`的值和含义为：
     ```bash
     SOCK_STREAM     Provides sequenced, reliable, two-way, connection-based byte streams.  An out-of-band data transmission mechanism may be supported.
 
@@ -57,10 +57,39 @@ int socket(int domain, int type, int protocol);
 
     SOCK_PACKET     Obsolete and should not be used in new programs; see packet(7).
     ```
-    其中`SOCK_STREAM`和`SOCK_DGRAM`是最为常见的，它们分别用在TCP和UDP中。
+    其中`SOCK_STREAM`和`SOCK_DGRAM`分别用在TCP和UDP网络编程中。`SOCK_STREAM`提供面向连接的、可靠的、顺序的字节流，因为流式数据没有提供定界功能，因此需要自己去处理数据重组，即所谓的“粘包”。`SOCK_DGRAM`提供无连接的、不可靠的、最大长度是确定的数据报。一种类型的`domain`可以选择不同的`type`，例如我们选择`AF_INET`类型的socket进行通讯，可以选择流式数据还是数据报数据。
 
 * `protocol`：**代表通讯所用的协议类型**  
     一般来说说一种`type`对应一种`protocal`，在这种情况下你只需将`protocol`设为0系统就会自动为你选择适当的协议。但是也有可能多种类型的`protocal`对应同一种`type`，此时`protocol`的值与`domain`有关，**即有多种协议可选的时候，要根据域来选择最适合的协议**。
+
+## 将这个socket绑定到某个地址
+当两个socket进行通讯的时候，必须有某种机制用来找到对方，这就需要将socket绑定到某个地址（address）上面。犹如两个人打电话，只有电话（socket）还是不够的，必须把电话和电话号码（address）绑定起来，才能相互找到对方。
+
+Unix中通过函数`bind()`来实现绑定，它的原型如下：
+```C
+#include <sys/types.h>         
+#include <sys/socket.h>
+int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
+```
+
+* `sockfd`：某个socket的描述符，不多解释
+* `addr`：代表某种类型的地址，不同的`domain`有着相似但稍有区别的`addr`，但是各种类型的`addr`都有一个公共的父类`sockaddr`，它的结构如下
+    ```C
+    struct sockaddr {
+        sa_family_t sa_family;
+        char        sa_data[14];
+    }    
+    ```
+    在编程的时候会将不同类型的`addr`都转型为`sockaddr`，这是为了欺骗编译器。本文只讨论`AF_UNIX`类型的socket，因此后面会详细讨论`addr_un`，它是`AF_UNIX`专用的`addr`
+* `addrlen`：`addr`的实际长度
+
+这个方法成功时候返回0，否则返回-1，常见的errno意义如下（Node.js中常见）：
+* `EACCES`：地址被保护且用户非超级用户
+* `EADDRINUSE`：有两种意思：
+    * 指定的地址已经被使用了
+    * 在Internet类型的socket中，当socket视图绑定到一个临时端口时候，这个错误意味着所有临时端口已经消耗殆尽
+
+
 
 # 客户端的socket API
 
