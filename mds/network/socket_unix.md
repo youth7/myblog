@@ -7,14 +7,16 @@
 * 端点想要通讯，必须借助某些工具，Unix中端点使用socket实现通讯。
 
 # socket API
-socket API是Unix上socket的对外接口，通过socket API可以灵活地操纵socket。`服务端-客户端` 是一个流行的编程模型，我们通过这个模型来介绍socket API的使用
+socket API是Unix上socket的对外接口，通过socket API可以灵活地操纵socket。Unix进程使用socket来进行通讯，这种通讯可以是本地的，也可以是远程的。本文主要介绍本地通讯，因为通讯双方是同一个系统内的不同进程，因此这种通讯方式也被视为IPC（Inter-Process Communication，进程间通信）的一种。
 
 # 服务端socket API
 实现一个服务端的步骤为：
 * 创建一个socket
 * 将这个socket绑定到某个地址
 * 让这个socket转为被动模式
-* 监听进来的请求并做出响应
+* 接受请求
+
+下面将详细讲述这个几个步骤
 
 ## 创建一个socket
 通过调用`socket()`函数，可以创建一个socket，这个函数的原型如下：
@@ -80,7 +82,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
         char        sa_data[14];
     }    
     ```
-    在编程的时候会将不同类型的`addr`都转型为`sockaddr`，这是为了欺骗编译器。本文只讨论`AF_UNIX`类型的socket，因此后面会详细讨论`addr_un`，它是`AF_UNIX`专用的`addr`
+    在编程的时候会将不同类型的`addr`都转型为`sockaddr`，这是为了欺骗编译器。本文只讨论`AF_UNIX`类型的socket，因此后面会详细讨论`addr_un`，它是域`AF_UNIX`专用的地址。
 * `addrlen`：`addr`的实际长度
 
 这个方法成功时候返回0，否则返回-1，常见的errno意义如下（Node.js中常见）：
@@ -88,10 +90,63 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 * `EADDRINUSE`：有两种意思：
     * 指定的地址已经被使用了
     * 在Internet类型的socket中，当socket视图绑定到一个临时端口时候，这个错误意味着所有临时端口已经消耗殆尽
+### 关于`sockaddr_un`
+`sockaddr_un`比较复杂，我们只关注其中的重点部分。它是`AF_UNIX`类型socket专用的地址，结构如下：
+```C
+struct sockaddr_un {
+    sa_family_t sun_family;               /* AF_UNIX */
+    char        sun_path[108];            /* pathname */
+};
+```
+* `sun_family`：值只能是`AF_UNIX.`，它指定了socket的地址族。
+* `sun_path`：地址的具体标识。不同的地址通过`sun_path`来相互区分，比较常见的做法是将一个文件系统的路径赋值给`sun_path`
 
+
+## 让这个socket转为被动模式
+通过`listen()`函数，可以将一个socket转变为被动模式。socket有两种模式，分别是被动模式和主动模式。当socket处于被动模式时，它被用作接受请求（即成为一个服务端）。该函数的原型如下：
+
+```C
+#include <sys/types.h>         
+#include <sys/socket.h>
+int listen(int sockfd, int backlog);
+```
+* `sockfd`：服务端的socket的描述符，例如之前调用`socket()`之后的返回值
+* `backlog`：当一个请求进来的时候，如果服务端正忙于前一个请求而无暇顾处理当前请求，当前请求就会被加入等待队列。`backlog`指定了等待队列的最大值。
+
+## 接受请求
+上面的初始化工作完成之后，服务端就可以调用`accept()`来接受请求，该函数从服务端socket的等待队列中取出请求并加以处理。它的原型如下：
+```C
+#include <sys/types.h>          
+#include <sys/socket.h>
+int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
+```
+* `sockfd`：服务端的socket的描述符，例如之前调用`socket()`之后的返回值
+* `addr`：一个指向`sockaddr`类型结构体的指针，`addr`的详情由对端的socket决定
+* `addrlen`：`addr`的长度，如果`addr`为NULL则`addrlen`也应该为NULL。
+
+当socket为阻塞且等待队列为空，则`accept`会一直阻塞直到有请求到来。如果没有错误发生，`accept()`最终会返回一个非负整数，它是对端socket的文件描述符（服务端的socket可以配置为阻塞和非阻塞两种，本文只讨论阻塞的socket，非阻塞socket会另开专题讨论）。
+
+
+
+## 一个例子
+有了以上的基础，我们可以写一个小例子
+```C
+#include< stdio.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+int main(void){
+    int serverSocket = socket(AF_UNIX, SOCK_STREAM, 0);
+    if(serverSocket==-1){
+        perror("create socket fail");
+    }
+    struct sockaddr_un serverAddr = {
+        sun_family : AF_UNIX,
+        sun_path:"asdfasdf"
+    };
+    bind(serverSocket, (struct sockaddr *)&serverAddr, sizeof(struct sockaddr_un));
+}
+```
 
 
 # 客户端的socket API
-
-
-
