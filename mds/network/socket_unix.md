@@ -99,7 +99,12 @@ struct sockaddr_un {
 };
 ```
 * `sun_family`：值只能是`AF_UNIX.`，它指定了socket的地址族。
-* `sun_path`：地址的具体标识。不同的地址通过`sun_path`来相互区分，比较常见的做法是将一个文件系统的路径赋值给`sun_path`
+* `sun_path`：地址的具体标识。不同的地址通过`sun_path`来相互区分。标记一个地址有3中方法：
+    * 使用文件系统的某个路径，这是最为常见的方法，例如将`sun_path`赋值为`/tmp/test`
+    * 使用匿名路径：例如通过`socketpair()`创建的socket对，它们的地址就是匿名的
+    * 使用抽象路径：使用一种更加抽象的方式来标记一个地址
+
+我们会在后面给出相关的例子
 
 
 ## 让这个socket转为被动模式
@@ -124,7 +129,7 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 * `addr`：一个指向`sockaddr`类型结构体的指针，`addr`的详情由对端的socket决定
 * `addrlen`：`addr`的长度，如果`addr`为NULL则`addrlen`也应该为NULL。
 
-当socket为阻塞且等待队列为空，则`accept`会一直阻塞直到有请求到来。如果没有错误发生，`accept()`最终会返回一个非负整数，它是对端socket的文件描述符（服务端的socket可以配置为阻塞和非阻塞两种，本文只讨论阻塞的socket，非阻塞socket会另开专题讨论）。
+当socket为阻塞且等待队列为空，则`accept`会一直阻塞直到有请求到来（服务端的socket可以配置为阻塞和非阻塞两种，本文只讨论阻塞的socket，非阻塞socket会另开专题讨论）。如果没有错误发生，`accept()`最终会返回一个**新的socket的文件描述符，真正跟对端socket通讯的是这个新的socket描述符，而原来的socket并不会受到影响**。
 
 
 
