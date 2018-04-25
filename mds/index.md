@@ -6,5 +6,7 @@
 # [CoreJS](/mds/corejs/index.md)
 # [Algorithm](/mds/algorithm/index.md)
 # [Network](/mds/network/index.md)
-# Architecture
+<!-- # Architecture -->
 # [Math](/mds/math/index.md)
+# [DataBase](/mds/database/index.md)
+<!-- # [Distribution](/mds/distri/index.md) -->
