@@ -67,7 +67,7 @@ int socket(int domain, int type, int protocol);
     其中`SOCK_STREAM`和`SOCK_DGRAM`分别用在TCP和UDP网络编程中。`SOCK_STREAM`提供面向连接的、可靠的、顺序的字节流，因为流式数据没有提供定界功能，因此需要自己去处理数据重组，即所谓的“粘包”。`SOCK_DGRAM`提供无连接的、不可靠的、最大长度是确定的数据报。一种类型的`domain`可以选择不同的`type`，例如我们选择`AF_INET`类型的socket进行通讯，可以选择流式数据还是数据报数据。
 
 * `protocol`：**代表通讯所用的协议类型**  
-    一般来说说一种`type`对应一种`protocal`，在这种情况下你只需将`protocol`设为0系统就会自动为你选择适当的协议。但是也有可能多种类型的`protocal`对应同一种`type`，此时`protocol`的值与`domain`有关，**即有多种协议可选的时候，要根据域来选择最适合的协议**。
+    一般来说，一种`type`对应一种`protocal`，在这种情况下你只需将`protocol`设为0系统就会自动为你选择适当的协议。但是也有可能多种类型的`protocal`对应同一种`type`，此时`protocol`的值与`domain`有关，**即有多种协议可选的时候，要根据域来选择最适合的协议**。
 
 这个函数最终会创建一个socket，并返回一个描述符（正整数）来表示它。如果函数的返回值是-1，则表示socket创建失败。
 
