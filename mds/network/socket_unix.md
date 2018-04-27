@@ -12,7 +12,7 @@ Node.js的`net`模块有这样的描述：
 * 端点想要通讯，必须借助某些工具，Unix中端点使用socket实现通讯。
 
 # socket
-socket是一套API，可以用于IPC和远程通讯，本文只讨论IPC。在Linux上进行IPC有多种选择（例如管道、FIFO、共享内存变量、消息队列、Unix domain socket等），Unix domain socket虽说是IPC的一种，但是代码看起来却和网络编程差不多。
+socket是一套API，用于为进程提供通讯服务，包括本地通讯（IPC）和远程通讯，本文只讨论IPC。Linux上的IPC有多种方式（例如管道、FIFO、共享内存变量、消息队列、Unix domain socket等），Unix domain socket虽说是IPC的一种，但代码写起来却和网络编程差不多。
 
 # 服务端socket API
 实现一个服务端的步骤为：
@@ -96,7 +96,7 @@ int bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
     在编程的时候会将不同类型的`addr`都转型为`sockaddr`，这是为了欺骗编译器。本文只讨论`AF_UNIX`类型的socket，因此后面会详细讨论`addr_un`，它是域`AF_UNIX`专用的地址。
 * `addrlen`：`addr`的实际长度
 
-这个方法成功时候返回0，否则返回-1，常见的errno意义如下（Node.js中常见）：
+这个函数成功时候返回0，否则返回-1，常见的errno意义如下（Node.js中常见）：
 * `EACCES`：地址被保护且用户非超级用户
 * `EADDRINUSE`：有两种意思：
     * 指定的地址已经被使用了
@@ -126,7 +126,10 @@ int listen(int sockfd, int backlog);
 * `sockfd`：服务端的socket的描述符，例如之前调用`socket()`之后的返回值
 * `backlog`：当一个请求进来的时候，如果服务端正忙于前一个请求而无暇顾处理当前请求，当前请求就会被加入等待队列。`backlog`指定了等待队列的最大值。
 
-如果返回值是-1，则表示转换失败。
+这个函数成功时候返回0，否则返回-1。注意在Node.js的`net`模块中有一个`server.listen()`方法，文档上对其的解释是：
+>tart a server listening for connections. A `net.Server` can be a TCP or a IPC server depending on what it listens to.
+
+也就是说`listen()`的语义是去**监听某种东西**，可以是端口或者代表IPC的本地路径。然而Unix上的`listen()`并没有很直接表现出“去监听什么东西”这种意思。因此我觉得Node.js中的API在语义上设计得更加好，与人的思维更加符合（说到这里我特意去查了下Java的API，发现它有`bind()`但是没有`listen()`，意思是把socket绑定到某处就可以接受请求了，也很直白简洁。多年不用Java，我已经连API都记不住了）。
 
 
 ## 接受请求
@@ -142,11 +145,11 @@ int accept(int sockfd, struct sockaddr *addr, socklen_t *addrlen);
 
 当socket为阻塞且等待队列为空，则`accept`会一直阻塞直到有请求到来（服务端的socket可以配置为阻塞和非阻塞两种，本文只讨论阻塞的socket，非阻塞socket会另开专题讨论）。如果没有错误发生，`accept()`最终会返回一个**新的socket的文件描述符，真正跟对端socket通讯的是这个新的socket描述符，而原来的socket并不会受到影响**。
 
-如果返回值是-1，则表示操作失败。
+如果成功，函数返回一个非负整数，否则返回-1。
 
 
 ## 一个服务端的例子
-有了以上的基础，我们可以写一个小例子
+有了以上的基础，我们可以写本地版的echo服务器，这个服务器接受客户端连接，然后接受输入并原样返回给客户端。这个服务端被设计为一次只能接收一个连接（如果要接收多个连接需要多线程或者非阻塞IO，这使得程序复杂化，不利于演示）。
 ```C
 #include <stdio.h>
 #include <stdlib.h>
@@ -225,7 +228,7 @@ int main(void) {
 * 创建一个socket
 * 连接到对等的socket
 
-可见创建客户端的socket较为简单，没有地址绑定，状态转换等步骤，下面将详细讲述这两个步骤
+可见创建客户端的socket较为简单，没有地址绑定和状态转换，下面将详细讲述这两个步骤
 ## 创建一个socket
 和服务端创建socket一样，请参考上面
 
@@ -241,7 +244,7 @@ int connect(int sockfd, const struct sockaddr *addr,socklen_t addrlen);
 
 
 # 使用`send()`和`recv()`进行数据的收发
-Unix domain socket是全双工的，因此双方都可以使用`send()`和`recv()`来进行数据的收发，`recv()`的原型如下：
+当两个socket连接起来后（其实datagram socket不需要连接也可以发送数据），就可以使用其它API进行通讯了。Unix domain socket是全双工的，因此双方都可以使用`send()`和`recv()`来进行数据的收发，`recv()`的原型如下：
 ```c
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -249,14 +252,14 @@ ssize_t recv(int sockfd, void *buf, size_t len, int flags);
 ```
 
 * `sockfd`：描述符，函数将从这个描述符代表的socket中读取数据
-* `buf`：一个指针，指向了当前socket用来接收对端socket发送的数据的缓冲区
+* `buf`：一个指针，指向了当前socket用来接收对端socket数据的缓冲区
 * `len`：表示从socket中读取长度为`len`的数据到缓冲区
-* `flags`:用途非常广泛，可以用来设置异步IO等，我们这里不深入介绍，如果没有特殊要求可以设为0
+* `flags`:用途非常广泛，可以用来设置异步IO等，我们这里不深入介绍，如果没有额外的要求可以设为0
 
 `recv`的返回值意义如下：
 * -1：出错
 * 0：表示对端已经关闭
-* 其它正整数：真正从对端socket读取出来的字节数，有可能比`len`要小
+* 其它正整数：真正从对端socket读取出来的字节数，有可能比`len`要小（因为数据不一定全部就绪）
 
 `send()`函数的原型如下：
 ```C
@@ -271,59 +274,53 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags);
 ```C
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <string.h>
 #include <stdbool.h>
 #include <errno.h>
 #include <unistd.h>
-
-#define BUF_SIZE 1024
-void handleError(char *msg){
-    perror("msg");
+#define BUFFER_SIZE 1024
+char buffer[BUFFER_SIZE] = {0};
+char path[] = "./namo_amitabha";
+void handleError(char *msg) { //错误处理函数
+    perror(msg);
     exit(-1);
 }
-int main(int argc, char *argv[])
-{
-    struct sockaddr_un addr;
-    int sfd;
-    ssize_t numRead;
-    char buf[BUF_SIZE];
-
-    sfd = socket(AF_UNIX, SOCK_STREAM, 0); /* Create client socket */
-    if (sfd == -1)
-        handleError("socket");
-
-    
-    addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, "./namo_amitabha", sizeof(addr.sun_path) - 1);
-
-    if (connect(sfd, (struct sockaddr *)&addr,sizeof(struct sockaddr_un)) == -1)
-        handleError("connect");
-
-    /* Copy stdin to socket */
-    int i = 10;
-    char msg[] = "1234567890asdfghjkl";
-    // while(i-->0){
-    //     numRead = write(sfd, msg, sizeof(msg));
-    //     printf("发送的长度是%d",numRead);
-
-    // }
-    while ((numRead = read(STDIN_FILENO, buf, BUF_SIZE)) > 0){
-        printf("读取到的长度是=================================%d\n",numRead);
-        if (write(sfd, buf, numRead) != numRead)
-            handleError("partial/failed write");
-        int numberOfReaded = read(sfd, buf, BUF_SIZE);
-        buf[numberOfReaded] = 0;
-        if(numberOfReaded!=-1){
-            printf("%s\n", buf);
-        }            
+int main(void) {
+    int clientSocket = socket(AF_UNIX, SOCK_STREAM, 0);
+    if (clientSocket == -1) {
+        handleError("创建socket失败");
     }
-    printf("done啊\n");
-    if (numRead == -1)
-        handleError("read");
+    struct sockaddr_un addr;
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, path, sizeof(addr.sun_path));
 
-    exit(EXIT_SUCCESS); /* Closes our socket; server sees EOF */
+    if (connect(clientSocket, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+        handleError("连接服务端失败");
+    }
+    while(true) {
+        fgets(buffer, BUFFER_SIZE, stdin);
+        if(send(clientSocket, buffer, strlen(buffer), 0)==-1) {
+            handleError("发送失败");
+        }
+        int numOfReaded = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+        if(numOfReaded==-1) {
+            handleError("对端已经关闭");
+        }
+        buffer[numOfReaded]=0;
+        printf("%s", buffer);
+    }
 }
 ```
+将服务端和客户端分别保存为server.c和client.c，对于服务端端使用以下命令编译运行
+```bash
+gcc -Wall server.c -o server.out && ./server.out
+```
+对于客户端使用以下命令编译运行
+```bash
+gcc -Wall client.c -o client.out && ./client.out
+```
+在我的机器上(Fedora26 + GCC7.3.1)运行结果如下：
+
+![unix_domain](/imgs/unix_domain.jpg)
