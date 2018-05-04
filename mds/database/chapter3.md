@@ -19,3 +19,14 @@ where (instructor.ID, dept_name) = (teaches.ID, 'Biology');
 交：intersect  (all)  
 减：except (all)  
 如果想要保留重复，则可以在后面加上一个all
+
+# 嵌套子查询
+## 子查询用在`where`中
+* 配合in使用
+* 使用`some`和`all`进行集合的比较
+* 使用`exist`进行空关系测试
+## 子查询用在`from`中
+* `lateral`子句
+* `with`子句
+* 标量子查询
+## 标量子查询
