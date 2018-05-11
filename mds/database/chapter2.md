@@ -13,7 +13,9 @@
 列的取值范围称为域
 
 ## 关系模式
-由属性序列和属性队列对应的域组成（即表的结构？）
+由属性序列和各属性对应域组成（即表的结构？）
+数据库模式（database schema）和关系模式（relation schema）的关系：数据库模式是描述整个数据库的，它包含了各个表之间的关系。而各个表的细节，则是由关系模式描述。
+[What's the difference between relation schema and database schema?](https://www.quora.com/Whats-the-difference-between-relation-schema-and-database-schema)
 
 ## 模式图
 
