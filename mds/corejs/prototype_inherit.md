@@ -88,8 +88,8 @@ console.log(c1.getPrivate());
 # 构造函数继承构造函数
 假设有一个构造函数`parent`，现在需要创建一种新的对象，它继承了`parent`的所有属性，具体步骤如下：
 
-* 继承父类的私有属性和非共享属性：首先创建新对象的构造函数`child`，它通过某种方式调用父类的构造函数
-* 继承父类的共享属性： 设置`child`的`prototype`属性，使其指向以`parent`为原型的对象（注意这里不能通过`Object.create`来创建，下面会说原因）
+* 继承父类的**私有属性和非共享属性**：首先创建新对象的构造函数`child`，它通过某种方式调用父类的构造函数
+* 继承父类的**共享属性**： 设置`child`的`prototype`属性，使其指向以`parent`为原型的对象（注意这里不能通过`Object.create`来创建，下面会说原因）
 * 使用`new`来调用`child`
 
 具体代码如下：
@@ -108,10 +108,11 @@ function child(age=2, myname="子类指定") {
 	this.age = age;
 	parent.call(this, myname, 34);
 }
-
-child.prototype = Object.create(parent.prototype);//只继承非享属性
+// 只继承非享属性，注意这里不要使用new parent()，这样的话就会重复继承parent的非共享属性了
+// 同时如果省去这一句代码，child的实例就无法继承parent的speak，虽然child实例的内部有一个parent的实例，但是child的this**没有引用parent实例的任何属性**。
+child.prototype = Object.create(parent.prototype);
 var c = new child(33,44);
 ```
-注意上面代码中，如果你不通过`parent.call(this, myname, 34)`来调用父类构造函数，而是通过`child.prototype =new Parent()`来实现继承也是可以的，但是这样的缺陷就是**无法给父构造函数传参**，因此很多时候手动调用父类构造函数是必要的。
+注意上面代码中，如果你不通过`parent.call(this, myname, 34)`来调用父类构造函数，而是通过`child.prototype =new parent()`来实现继承也是可以的，但是这样的缺陷就是无法给父构造函数传参，因此很多时候手动调用父类构造函数是必要的。
 
 
