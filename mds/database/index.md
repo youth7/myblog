@@ -3,4 +3,6 @@
 # [第一章 引言](./chapter1.md)
 # [第二章 关系模型介绍](./chapter2.md)
 <!-- # [第三章 SQL 未完成](./chapter3.md) -->
-<!-- # [第十四章 事务 未完成](./chapter14.md) -->
+# [第十四章 事务](./chapter14.md)
+
+# [在Centos7.5上安装Postgresql 10的注意事项](./postgresql10_install.md)
