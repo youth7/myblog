@@ -31,7 +31,7 @@ socket是一套API，用于为进程提供通讯服务，包括本地通讯（IP
 int socket(int domain, int type, int protocol);
 ```
 其中各个参数的意义如下：
-* `domain`：**代表通讯所在的域**，可以认为一种域代表一种socket，因此这个参数指明了socket的类型
+* `domain`：**代表通讯所在的域**，表示这个通讯是在哪个范围内进行，不同的域的通讯协议是不同的。
     Unix中支持的`domain`的值和含义为：
     ```bash
     Name                Purpose                          Man page
@@ -47,10 +47,12 @@ int socket(int domain, int type, int protocol);
     AF_PACKET           Low level packet interface       packet(7)
     AF_ALG              Interface to kernel crypto API
     ```
-    可知Unix支持多种类型的socket，其中`AF_UNIX`（本地通讯）、`AF_INET`（IP4通讯）、`AF_INET6`（IP6通讯）最为常见的，`AF`是address family的缩写，`INET`是Internet的缩写。`domain`在某些情况下会影响`protocol`的值，详见`protocol`的解释。
+    Unix支持多种类型的通讯域，其中`AF_UNIX`（本地通讯）、`AF_INET`（IP4通讯）、`AF_INET6`（IP6通讯）最为常见的，`AF`是address family的缩写，中文一般翻译为地址族，是指某种类型的地址的集合。例如AF_INET就是所有IPv4地址的集合，AF_LOCAL就是Unix Socket的集合（大部分为一个本地文件的路径）。我个人是这样理解的，`domain`指定的是一个通讯的范围或者空间，可以通过地址族来描述这个空间的范围（因为地址族就是所有通讯地址的集合），因此通过地址族来指定domain是很合理的
+
 
 * `type` ：**代表通讯数据的语意**  
-    意味数据是通过什么方式发送的（例如流式数据还是数据报），Unix中支持的`type`的值和含义为：
+    所谓的“语意”我个人的理解是指：通讯前是否需要建立连接，通道是否双工，数据是否有序，通讯是否可靠。一开始我觉得这些不是协议的部分内容么，为何要在这里指定？后来再仔细想想这些其实和具体的协议是不相关的，协议的具体内容是构建于这些“语意”之上，“语意”比协议更加低层，它是socket进行数据交换的方式，而如何解读这些数据才是协议的事情。
+    Unix中支持的`type`的值和含义为：
     ```bash
     SOCK_STREAM     Provides sequenced, reliable, two-way, connection-based byte streams.  An out-of-band data transmission mechanism may be supported.
 
@@ -67,7 +69,7 @@ int socket(int domain, int type, int protocol);
     `SOCK_STREAM`提供面向连接的、可靠的、顺序的字节流，因为流式数据没有提供定界功能，因此需要自己去处理数据重组，即所谓的“粘包”。`SOCK_DGRAM`提供无连接的、不可靠的、最大长度是确定的数据报。一种类型的`domain`可以选择不同的`type`，例如我们选择`AF_INET`类型的socket进行通讯，可以选择流式数据还是数据报数据。而网络编程中，TCP和UDP分别使用`SOCK_DGRAM`和`SOCK_DGRAM`的方式进行通信。
 
 * `protocol`：**代表通讯所用的协议类型**  
-    一般来说，一种`type`对应一种`protocal`，在这种情况下你只需将`protocol`设为0系统就会自动为你选择适当的协议。但是也有可能多种类型的`protocal`对应同一种`type`，此时`protocol`的值与`domain`有关，**即有多种协议可选的时候，要根据域来选择最适合的协议**。
+    一般来说对于某个给定的协议族，只有一个`protocal`和`domain`对应，在这种情况下你只需将`protocol`设为0系统就会自动为你选择适当的协议。但是理论上在一个协议族中，是有可能有多个`protocal`适用于同一个`domain`，此时需要显示指定`protocol`的值。
 
 这个函数最终会创建一个socket，并返回一个描述符（正整数）来表示它。如果函数的返回值是-1，则表示socket创建失败。
 
