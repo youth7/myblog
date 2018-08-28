@@ -10,21 +10,9 @@
 ## [极限和无穷小](limit_&_infinitesimal.md)
 ## [导数和微分(被$dy$和$dx$支配的恐惧)](derivative_&_differential.md)
 ## [全微分的几何意义的推导)](total_derivative.md)
-## [各种积分的比较](integral.md)
+<!-- ## [各种积分的比较](integral.md) -->
 ## [教材上几个不起眼但是很重要的极限]()
 # 线性代数
+## [关于教材上行列对换一些细节的推导](determinant.md)
 # 概率统计
 
--------------------------
-
-旧的
-<!--
-# 高昆轮零基础高数复习
-主要是看高昆轮的视频，地址是：https://www.bilibili.com/video/av9419740/#page=1
-## [极限](0_base_limit.md)
-## [导数和微分](0_base_derivate_&_differential.md)
-# 张宇高数考研2018
-这个部分主要是听张宇视频所做的笔记，视频地址：https://www.bilibili.com/video/av12632312/index_3.html#page=2
-
-## [第1部分：极限的定义、性质、计算、应用](zy_higher_mathematics_1_1.md)
--->
