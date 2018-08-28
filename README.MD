@@ -5,6 +5,7 @@ NodeJS 8.0+
 将项目clone下来之后，通过以下命令安装依赖并启动
 ```bash
 npm install
+解压/script/MathJax-master.zip
 node blog.js
 ```
 
