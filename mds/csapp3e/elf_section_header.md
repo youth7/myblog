@@ -57,7 +57,7 @@ Linux下的.o文件（也叫做目标文件）就是可重定位文件。（Linu
 
 这些信息隐藏在ELF的**头部**（ELF section header）和**段表**（Section header table）中。  
 
-我们接下来的讨论都是基于下面的C语言程序，在x86-64的小端机器下
+我们接下来的讨论都是基于下面的C语言程序编译后的可重定位文件（平台为X86-64，小端机器）
 
 ```C
 int global_init_var = 84;
@@ -75,8 +75,7 @@ int main(void) {
 	return 0;
 }
 ```
-
-将其编译为可重定位文件（elf.o文件），平台为X86-64，小端机器
+通过以下命令编译，将会产生一个elf.o文件
 ```BASH
 gcc -c elf.c
 ```
