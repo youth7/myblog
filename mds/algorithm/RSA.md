@@ -10,6 +10,7 @@
 * 公钥秘钥为何难以破解
 * 如何利用公钥、私钥进行加密、解密
 * 解密过程的数学证明
+* 一个RSA小demo
 
 建议初次阅读不要纠结欧拉公式和欧拉定理的相关证明（具体证明可以在参考资料中找到），要将精力放在公钥秘钥的生成以及如何使用公钥秘钥进行加密解密。（不过我个人最感兴趣的是解密过程的数学证明，因此还是补全了那个证明）
 
@@ -124,16 +125,7 @@ $a^{φ(n)} = a a^{φ(n)-1}$
             y: minY
         };
     }
-    (function() {
-        const [n, e, d] = [323, 13, 133];
-        for (let i = 0; i < n; i++) {
-            let text = i;
-            const ciphertext = BigInt(i) ** BigInt(e) % BigInt(n);
-            console.log("密文为", ciphertext);
-            const decrypt = BigInt(ciphertext) ** BigInt(d) % BigInt(n);
-            console.log("明文为", Number(decrypt), text);
-        }
-    })();
+
    ```
  
     例如：令$a=17$，$b=3120$来调用函数`extendEuclidean(17, 3120)`，则会得到一组解$x=-367, y=2$，但是我们需要的是$x$为最小正整数的那组解。通过调用`getMin(17, 3120)`我们可以得到$x=-2753, y=-15$
@@ -258,7 +250,26 @@ $m^{ed} ≡ m \pmod n$
 因此③式得证
 
 
+## 一个RSA小demo
 
+```js
+    (function() {
+        //这段代码只能运行在chrome浏览器68之后的版本上
+        const [p,q] = [17, 29];//选取两个质数
+        const n = p*q;//n=493
+        const fn = (p-1)*(q-1); //fn=448
+        const e = 31 ;//e必须和φ(n)互质
+        const d = 159//使用上面的getMin()算出d为
+        for (let i = 0; i < n; i++) {
+            const ciphertext = BigInt(i) ** BigInt(e) % BigInt(n);
+            const decrypt = BigInt(ciphertext) ** BigInt(d) % BigInt(n);
+            console.log(`加密后为:${ciphertext} 解密后为:${Number(decrypt)}, 原文为${i}`);
+            if(Number(decrypt)!= i){
+                throw new Error("加密/解密出错");
+            }
+        }
+    })();
+```
 
 
 
