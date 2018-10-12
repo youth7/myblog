@@ -271,11 +271,6 @@ $m^{ed} ≡ m \pmod n$
     })();
 ```
 
-
-
-
-
 <!-- ①②③④⑤⑥⑦⑧⑨⑩ -->
-
 参考资料
 [http://www.ruanyifeng.com/blog/2013/07/rsa_algorithm_part_two.html](http://www.ruanyifeng.com/blog/2013/07/rsa_algorithm_part_two.html)
