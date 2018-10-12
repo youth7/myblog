@@ -70,7 +70,7 @@ $a^{φ(n)} = a a^{φ(n)-1}$
 * 如果$a \bmod b = 1$，则$ka \bmod b = k \bmod b$   
     这个结论非常容易理解，如果$a$除以$b$余数为$1$，则多个$a$除以$b$的余数会一直累积。例如  
     $10 \bmod 3 =1$  
-    $20 \bmod 3 =1$  
+    $20 \bmod 3 =2$  
     $30 \bmod 3 =0$
 
 * 如果$a \bmod b = 1$，则$a^k \bmod b = 1$    
@@ -259,7 +259,7 @@ $m^{ed} ≡ m \pmod n$
         const n = p*q;//n=493
         const fn = (p-1)*(q-1); //fn=448
         const e = 31 ;//e必须和φ(n)互质
-        const d = 159//使用上面的getMin()算出d为
+        const d = 159//使用上面的getMin()算出d为159
         for (let i = 0; i < n; i++) {
             const ciphertext = BigInt(i) ** BigInt(e) % BigInt(n);
             const decrypt = BigInt(ciphertext) ** BigInt(d) % BigInt(n);
