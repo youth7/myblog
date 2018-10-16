@@ -1,5 +1,13 @@
 本文不涉及`ES6`的新特性`class`
 
+本来将讨论以下内容  
+* 对象继承对象  
+	* 方法1：构造函数法
+	* 方法2：方法2：`__proto__`法
+	* 方法3：`Object.create`法
+	* 共享属性、非共享属性、私有属性
+* 构造函数继承构造函数
+* 总结
 
 > **想继承谁，就把谁设为自己的原型**
 
@@ -88,8 +96,8 @@ console.log(c1.getPrivate());
 # 构造函数继承构造函数
 假设有一个构造函数`parent`，现在需要创建一种新的对象，它继承了`parent`的所有属性，具体步骤如下：
 
-* 继承父类的**私有属性和非共享属性**：首先创建新对象的构造函数`child`，它通过某种方式调用父类的构造函数
-* 继承父类的**共享属性**： 设置`child`的`prototype`属性，使其指向以`parent`为原型的对象（注意这里不能通过`Object.create`来创建，下面会说原因）
+* 继承父类的**私有属性和非共享属性**：首先创建新对象的构造函数`child`，它通过**某种方式调用父类的构造函数**
+* 继承父类的**共享属性**： 设置`child`的`prototype`属性，**使其指向以`parent`为原型的对象**（注意这里不能通过`Object.create`来创建，下面会说原因）
 * 使用`new`来调用`child`
 
 具体代码如下：
@@ -98,7 +106,7 @@ function parent(myname="共享属性") {
 	const pri = "私有属性";
 	this.myname = myname;
 	this.getPrivate = function(){
-		console.log("获取私有属性");
+		console.log("获取私有属性", this.pri);
 	}
 }
 parent.prototype.speak = function() {
@@ -109,10 +117,14 @@ function child(age=2, myname="子类指定") {
 	parent.call(this, myname, 34);
 }
 // 只继承非享属性，注意这里不要使用new parent()，这样的话就会重复继承parent的非共享属性了
-// 同时如果省去这一句代码，child的实例就无法继承parent的speak，虽然child实例的内部有一个parent的实例，但是child的this**没有引用parent实例的任何属性**。
+// 同时如果省去这一句代码，child的实例就无法继承parent的speak，虽然child实例的内部有一个parent的实例，但是child的this没有引用parent实例的任何属性。
 child.prototype = Object.create(parent.prototype);
 var c = new child(33,44);
 ```
-注意上面代码中，如果你不通过`parent.call(this, myname, 34)`来调用父类构造函数，而是通过`child.prototype =new parent()`来实现继承也是可以的，但是这样的缺陷就是无法给父构造函数传参，因此很多时候手动调用父类构造函数是必要的。
+注意上面代码中，如果不在构造函数`child()`中调用`parent.call(this, myname, 34)`，而是在构造函数`child()`外外面通过`child.prototype =new parent()`来实现继承也是可以的，但是这样的缺陷就是**无法给父构造函数传参**，因此很多时候手动调用父类构造函数是必要的。
 
 
+# 总结：
+如果想实现类似Java那种基于类的继承，可以这么做
+* 首先，创建子类构造函数，在子类构造函数内部调用`父类构造函数.call(this, 其它参数)`，经过这一步之后就继承了父类的私有属性和非共享属性
+* 然后，在子类构造函数外面调用`子类构造函数.prototype = Object.create(父类构造函数.prototype);`，经过这一步之后就继承了父类的共享属性
