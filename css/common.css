@@ -34,12 +34,20 @@ table,th, td
 {
 border: 1px solid black;
 }
-code {
+/* code {
     background-color: #f0f0f0;
     font-size: 85%;
     font-family: consolas;
     padding: 2px;
  
+} */
+
+
+code {
+  font-size: 0.93em;
+  padding: 2px 4px;
+  color: #c7254e;
+  background-color: #f9f2f4;
+  border-radius: 4px;  
+  font-family: "Source Code Pro",Consolas,Menlo,Monaco,"Courier New",monospace;
 }
-
-
