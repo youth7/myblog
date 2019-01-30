@@ -15,5 +15,7 @@
 # 线性代数
 ## [教材上关于行列式对换推导的一些细节](determinant.md)
 ## [矩阵乘法的几种理解](matrix_multiplication.md)
+## [$Ax=b$有解的几种情况](solution_of_ax=b.md)
+
 # 概率统计
 
