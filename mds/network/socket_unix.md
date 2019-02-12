@@ -31,7 +31,7 @@ socket是一套API，用于为进程提供通讯服务，包括本地通讯（IP
 int socket(int domain, int type, int protocol);
 ```
 其中各个参数的意义如下：
-* `domain`：**代表通讯所在的域**，表示这个通讯是在哪个范围内进行，不同的域的通讯协议是不同的。
+* `domain`：**代表通讯所在的域**，表示这个通讯是在哪个“空间”中进行
     Unix中支持的`domain`的值和含义为：
     ```bash
     Name                Purpose                          Man page
@@ -70,6 +70,9 @@ int socket(int domain, int type, int protocol);
 
 * `protocol`：**代表通讯所用的协议类型**  
     一般来说对于某个给定的协议族，只有一个`protocal`和`domain`对应，在这种情况下你只需将`protocol`设为0系统就会自动为你选择适当的协议。但是理论上在一个协议族中，是有可能有多个`protocal`适用于同一个`domain`，此时需要显示指定`protocol`的值。
+
+* `protocol`和`domain`是不是有点重复？  
+    我个人认为`domain`只是指定了通讯在哪个空间中进行，至于通讯的具体细节（即协议）由`protocol`指定。但是现实中一个`domain`通常只有一个`protocal`，因此让人觉得两个参数的意义是重复。理论上我在一个通讯空间是可以有多种通讯协议的。
 
 这个函数最终会创建一个socket，并返回一个描述符（正整数）来表示它。如果函数的返回值是-1，则表示socket创建失败。
 
