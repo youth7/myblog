@@ -7,11 +7,12 @@
 
 
 # 高数相关
+## [一道小题目想起](thinking_from_exercise.md)
 ## [极限和无穷小](limit_&_infinitesimal.md)
 ## [导数和微分(被$dy$和$dx$支配的恐惧)](derivative_&_differential.md)
 ## [全微分的几何意义的推导)](total_derivative.md)
 <!-- ## [各种积分的比较](integral.md) -->
-## [教材上几个不起眼但是很重要的极限]()
+<!-- ## [教材上几个不起眼但是很重要的极限]() -->
 # 线性代数
 ## [教材上关于行列式对换推导的一些细节](determinant.md)
 ## [矩阵乘法的几种理解](matrix_multiplication.md)
