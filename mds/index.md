@@ -9,4 +9,5 @@
 <!-- # Architecture -->
 # [Math](/mds/math/index.md)
 # [DataBase](/mds/database/index.md)
+# [Machine Learning](/mds/ml/index.md)
 <!-- # [Distribution](/mds/distri/index.md) -->
