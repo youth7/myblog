@@ -57,7 +57,82 @@ message header是报文非常重要的部分，携带了通讯中的一些元信
 ### request message header
 按照功能可以分为以下几类：  
 
-* Controls
+|功能类型|包含的header|
+|---|---|
+|Controls                       |Cache-Control<br>Expect<br>Host<br>Max-Forwards<br>Pragma<br>Range<br>TE|
+|Conditionals                   |if-Match<br>if-None-Match<br>if-Modified-Since<br>if-Unmodified-Since<br>if-Range|
+|Content Negotiation            |Accept<br>Accept-Charset<br>Accept-Encoding<br>Accept-Language|
+|Authentication Credentials     |Authorization<br>Proxy-Authorization|
+|Request Context                |From<br>Referer<br>User-Agen|
+
+### response message header
+按照功能可以分为以下几类： 
+
+|功能类型|包含的header|
+|---|---|
+|Control Data               |Age<br>Cache-Control<br>Expires<br>Date<br>Location<br>Retry-After<br>Vary<br>Warnin|
+|Validator Header Fields    |ETag<br>Last-Modified|
+|Authentication Challenges  |WWW-Authenticate<br>Proxy-Authenticate|
+|Response Context           |Accept-Ranges<br>Allow<br>Server|
+<!-- * Control Data
+    * Age	          
+    * Cache-Control
+    * Expires	      
+    * Date	      
+    * Location	  
+    * Retry-After	  
+    * Vary	      
+    * Warning    
+* Validator Header Fields（这种header应答上面Conditionals类的request header）
+    * ETag	
+    * Last-Modified
+* Authentication Challenges  
+    * WWW-Authenticate
+    * Proxy-Authenticate
+* Response Context  
+    * Accept-Ranges
+    * Allow	         
+    * Server -->
+
+### 可选的headers
+看上去好像少了很多我们经常碰得到的字段（例如缓存），实际上相当一部分我们广泛使用的header其实是可选的，它们包括
+
+
+|功能类型|包含的header|
+|---|---|
+|Conditional Requests   |If-Match<br>If-None-Match<br>If-Modified-Since<br>If-Unmodified-Since<br>If-Range|
+|Range Requests         |Range<br>If-Range|
+|Caching                |Age<br>Cache-Control<br>Expires<br>Pragma<br>Warning|
+|Authentication         |WWW-Authenticate<br>Authorization<br>Proxy-Authenticate<br>Proxy-Authorization|
+
+## 参考资料
+[https://httpwg.org/specs/](https://httpwg.org/specs/)
+<!-- * HTTP Conditional Requests
+    * If-Match
+    * If-None-Match
+    * If-Modified-Since
+    * If-Unmodified-Since
+    * If-Range
+* HTTP Range Requests
+    * Range
+    * If-Range
+* HTTP Caching
+    * Age
+    * Cache-Control
+    * Expires
+    * Pragma
+    * Warning
+* HTTP Authentication
+    * WWW-Authenticate
+    * Authorization
+    * Proxy-Authenticate
+    * Proxy-Authorization -->
+
+
+
+
+
+<!-- * Controls
     * Cache-Control
     * Expect	   
     * Host	       
@@ -82,49 +157,4 @@ message header是报文非常重要的部分，携带了通讯中的一些元信
 * Request Context
     * From	
     * Referer	
-    * User-Agen
-### response message header
-按照功能可以分为以下几类：  
-* Control Data
-    * Age	          
-    * Cache-Control
-    * Expires	      
-    * Date	      
-    * Location	  
-    * Retry-After	  
-    * Vary	      
-    * Warning    
-* Validator Header Fields（这种header应答上面Conditionals类的request header）
-    * ETag	
-    * Last-Modified
-* Authentication Challenges  
-    * WWW-Authenticate
-    * Proxy-Authenticate
-* Response Context  
-    * Accept-Ranges
-    * Allow	         
-    * Server
-
-### 可选的headers
-看上去好像少了很多我们经常碰得到的字段（例如缓存），实际上相当一部分我们广泛使用的header其实是可选的，它们包括
-* HTTP Conditional Requests
-    * If-Match
-    * If-None-Match
-    * If-Modified-Since
-    * If-Unmodified-Since
-    * If-Range
-* HTTP Range Requests
-    * Range
-    * If-Range
-* HTTP Caching
-    * Age
-    * Cache-Control
-    * Expires
-    * Pragma
-    * Warning
-* HTTP Authentication
-    * WWW-Authenticate
-    * Authorization
-    * Proxy-Authenticate
-    * Proxy-Authorization
-
+    * User-Agen -->

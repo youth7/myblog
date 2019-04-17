@@ -33,6 +33,7 @@ border-collapse:collapse;
 table,th, td
 {
 border: 1px solid black;
+font-size: small;
 }
 /* code {
     background-color: #f0f0f0;
