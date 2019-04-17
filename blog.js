@@ -10,12 +10,7 @@ function getArticle(req, res) {
 	showContent(req, res, pathname);
 }
 const notModified = function(req, content) {
-	//const mtime = req.headers["if-modified-since"] || 0;
 	const eTag = req.headers["if-none-match"];
-	/*if (new Date(mtime).getTime() === content.lastModified.getTime()) {
-		console.log("mtime相等", mtime, content.lastModified.getTime());
-		return true;
-	} else */
 	if (eTag === content.eTag) {
 		//console.log("eTag相等", eTag);
 		return true;
@@ -23,6 +18,15 @@ const notModified = function(req, content) {
 		return false;
 	}
 };
+
+const getContentType =function(pathname){
+	let extendName = require("path").extname(pathname);
+	if(extendName.endsWith(".md")){
+		extendName = extendName.replace(".md", ".html");	
+	}
+	return require("mime-types").contentType(extendName);
+} 
+
 async function showContent(req, res, pathname, type) {
 	let content = await loadFiles.getByPathname(path.join(__dirname, pathname));
 	if (!content) {
@@ -32,55 +36,11 @@ async function showContent(req, res, pathname, type) {
 		show304(req, res);
 	} else {
 		res.setHeader("Content-Type", getContentType(pathname));
-		//因为md文件存在动态更新问题，目前先暂时停止一切lastModified和expires的缓存
-		//res.setHeader("Last-Modified", content.lastModified.toISOString());
 		res.setHeader("Etag", content.eTag);
-		//res.setHeader("Expires", content.expires.toISOString());
+
 		res.end(content.content);
 	}
 
-}
-
-function getContentTypeByExtname(pathname) {
-	const extname = path.extname(pathname);
-	switch (extname) {
-		case ".md":
-			return "text/html;charset=UTF-8";
-		case ".css":
-			return "text/css";
-		case ".js":
-			return "application/x-javascript";
-		case ".jpg":
-			return "image/jpeg";
-		case ".pdf":
-			return "application/pdf";
-		default:
-			return null;
-	}
-}
-
-function getContentType(pathname) {
-	let type = getContentTypeByExtname(pathname);
-	if (type) {
-		return type;
-	} else {
-		return getContentTypeByPathname(pathname.split("/")[1]);
-	}
-}
-
-function getContentTypeByPathname(type) {
-	switch (type) {
-		case "css": //优先判断这种，其实下面几种已经没有必要判断
-			return "text/css";
-		case "script":
-			return "application/x-javascript";
-			/*		case "mds":
-						return "text/html;charset=UTF-8";
-					case "imgs":
-						return "image/jpeg";*/
-		default:
-			return "";
-	}
 }
 
 function show404(req, res) {
