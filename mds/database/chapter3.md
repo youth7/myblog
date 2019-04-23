@@ -25,7 +25,7 @@ where (instructor.ID, dept_name) = (teaches.ID, 'Biology');
 |操作类型|关键字|
 |---|---|
 |并|`union`|
-|交|`intercept`|
+|交|`intersect`|
 |差|`except`|
   
 ## `NULL`
