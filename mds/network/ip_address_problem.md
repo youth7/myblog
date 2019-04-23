@@ -72,7 +72,7 @@ FoxitProtect.exe              4836 Services                   0      6,472 K
 ```
 
 
-原来是FoxiReader的服务占用4000端口造成冲突，改掉server.js监听的端口之后一切正常。  
+原来是Foxit阅读器的服务占用4000端口造成冲突，改掉server.js监听的端口之后一切正常。  
 问题依然解决了，但是我在这个过程中究竟犯了什么错误，为什么会犯这样的错误？为何会出现Postman可以访问但是client.js不能访问的现象？
 
 
