@@ -104,4 +104,8 @@ server.js在0.0.0.0上监听4000端口，它和127.0.0.1上监听相同端口的
 此外必须注意到文档中还提及
 >All net.Socket are set to SO_REUSEADDR   
 
-关于`SO_REUSEADDR`的讨论请看[这里](https://stackoverflow.com/questions/14388706/socket-options-so-reuseaddr-and-so-reuseport-how-do-they-differ-do-they-mean-t)和[这里](https://www.cnblogs.com/xybaby/p/7341579.html)，总之这又是一个隐蔽的坑，在不同的操作系统上`SO_REUSEADDR`具有不同的意义。而在windows上正是因为开启了`SO_REUSEADDR`才使得0.0.0.0:4000和127.0.0.1:4000不会冲突
+关于`SO_REUSEADDR`的讨论请看
+* [Socket options SO_REUSEADDR and SO_REUSEPORT, how do they differ? Do they mean the same across all major operating systems?](https://stackoverflow.com/questions/14388706/socket-options-so-reuseaddr-and-so-reuseport-how-do-they-differ-do-they-mean-t)  
+* [SO_REUSEADDR与SO_REUSEPORT平台差异性与测试](https://www.cnblogs.com/xybaby/p/7341579.html)    
+
+总之这又是一个隐蔽的坑，在不同的操作系统上`SO_REUSEADDR`具有不同的意义。而在windows上正是因为开启了`SO_REUSEADDR`才使得0.0.0.0:4000和127.0.0.1:4000不会冲突
