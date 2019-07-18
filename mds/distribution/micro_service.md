@@ -12,3 +12,7 @@
 * 基于数据库集成
 * 基于RPC集成
 * REST(里面提到支持REST的底层协议不一定是HTTP, 蓝牙协议也可以用来实现RPC-_-)
+
+
+## 分解原来的单块系统
+* bounded context概念：https://www.martinfowler.com/bliki/BoundedContext.html
