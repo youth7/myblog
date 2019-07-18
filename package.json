@@ -10,7 +10,9 @@
     "markdown-it-mathjax": "^2.0.0",
     "mime-types": "^2.1.22"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "eslint": "^5.16.0"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
