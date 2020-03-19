@@ -1,3 +1,4 @@
 /node_modules
 /.vscode
 /script/MathJax-master/*
+package-lock.json
