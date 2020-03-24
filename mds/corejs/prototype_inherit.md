@@ -116,7 +116,7 @@ function child(age=2, myname="子类指定") {
 	this.age = age;
 	parent.call(this, myname, 34);
 }
-// 同时如果省去这一句代码，child的实例就无法继承parent的speak，虽然child实例的内部有一个parent的实例，但是按照原型链往上搜索的时候并不会找到speak()
+// 如果省去这一句代码，child的实例就无法继承parent的speak，虽然child实例的内部有一个parent的实例，但是按照原型链往上搜索的时候并不会找到speak()
 child.prototype = Object.create(parent.prototype);
 var c = new child(33,44);
 ```
@@ -125,13 +125,18 @@ var c = new child(33,44);
 * `child.prototype = parent.prototype`  
 	缺点：子类和父类共享了同一个原型，如果其中一个修改了原型会影响对方
 * `child.prototype = new person()`  
-	缺点：`parent`被重复调用了2次（第一次是`parent.call(this, myname, 34);`）  
+	缺点：`parent`被重复调用了2次（第一次是`parent.call(this, myname, 34);`）  ，其实这个问题并不大，因为`child.prototype = new person()`仅仅在设置`child`原型的时候调用一次。
 * `child.prototype = Object.create(parent.prototype)`  
-	优点：是最完美的方法
+	优点：和第二种方法的区别其实就是被`new person()`和`Object.create(parent.prototype)`创建出来的对象的区别。     通过`Object.create(parent.prototype)`创建出来的原型会缺少`myname`和`getPrivate`，但是这完全没有问题，因为我们并不需要这两个属性，并且我们在`child`内部已经通过`parent.call`来为子类继承所需的属性了
 
 # 总结：
 如果想实现类似Java那种基于类的继承，可以这么做
 * 首先，创建子类构造函数，在子类构造函数内部调用`父类构造函数.call(this, 其它参数)`，经过这一步之后就继承了父类的私有属性和非共享属性
 * 然后，在子类构造函数外面调用`子类构造函数.prototype = Object.create(父类构造函数.prototype);`，经过这一步之后就继承了父类的共享属性
+
+另外需要留意以下的概念
+
+* 共享属性、非共享属性、私有属性
+* `new class()` 和 `Object.create(class.prototype)`创建出来的对象的区别，前者全部属性都有所继承，后者只继承原型上的属性。
 
 [参考资料](https://segmentfault.com/a/1190000016708006)
