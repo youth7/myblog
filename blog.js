@@ -6,7 +6,7 @@ const loadFiles = require("./lib/load_files");
 
 function getArticle(req, res) {
 	if (req.url === "/") req.url = "/mds/index.md";
-	const pathname = url.parse(req.url).pathname;
+	const pathname = decodeURIComponent(url.parse(req.url).pathname);//解码包含包含中文的url
 	showContent(req, res, pathname);
 }
 const notModified = function(req, content) {
