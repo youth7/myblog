@@ -2,3 +2,4 @@
 /.vscode
 /script/MathJax-master/*
 package-lock.json
+.idea
