@@ -2,7 +2,7 @@
   "name": "blog",
   "version": "1.0.0",
   "description": "my blog",
-  "main": "index.js",
+  "main": "blog.js",
   "dependencies": {
     "highlight.js": "^9.12.0",
     "markdown-it": "^8.3.1",
@@ -14,7 +14,8 @@
     "eslint": "^5.16.0"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node blog.js"
   },
   "repository": {
     "type": "git",

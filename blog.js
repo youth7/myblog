@@ -2,7 +2,13 @@
 const http = require("http");
 const url = require("url");
 const path = require("path");
+require("./lib/hijack_console");
+
 const loadFiles = require("./lib/load_files");
+
+function extractIp(req){
+	return req.socket.address();
+}
 
 function getArticle(req, res) {
 	if (req.url === "/") req.url = "/mds/index.md";
@@ -44,13 +50,13 @@ async function showContent(req, res, pathname, type) {
 }
 
 function show404(req, res) {
-	console.error(`非法路径请求${req.url}`);
+	console.error(`非法路径请求${req.url}，来源是`, extractIp(req));
 	res.statusCode = 404;
 	res.end();
 }
 
 function show304(req, res) {
-	console.warn(`资源没有改变${req.url}`);
+	// console.warn(`资源没有改变${req.url}`);
 	res.statusCode = 304;
 	res.end();
 }
