@@ -50,6 +50,7 @@ async function showContent(req, res, pathname, type) {
 }
 
 function show404(req, res) {
+	console.log(req.headers);
 	console.error(`非法路径请求${req.url}，来源是`, extractIp(req));
 	res.statusCode = 404;
 	res.end();

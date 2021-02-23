@@ -27,7 +27,7 @@ where (instructor.ID, dept_name) = (teaches.ID, 'Biology');
 |并|`union`|
 |交|`intersect`|
 |差|`except`|
-  
+
 ## `NULL`
 `NULL`和操作符、聚集函数一起使用的话，结果如下
 |操作符|返回值|
@@ -35,7 +35,7 @@ where (instructor.ID, dept_name) = (teaches.ID, 'Biology');
 |`NULL`和算术运算符|`NULL`|
 |`NULL`比较运算符|`unknown`|
 |`NULL`逻辑运算符|见下|
-|`NULL`和狙击函数|除了`count(*)`外，其它聚集函数都会葫芦`NULL` <br> 注意仅仅是`count(*)`有这种效果，`count(列名)`还是会忽略`null`的行|     
+|`NULL`和狙击函数|除了`count(*)`外，其它聚集函数都会忽略`NULL` <br> 注意仅仅是`count(*)`有这种效果，`count(列名)`还是会忽略`null`的行|
 
 
 除了以下两条，其它都返回unknown
@@ -55,7 +55,7 @@ where (instructor.ID, dept_name) = (teaches.ID, 'Biology');
     |将元组与S中的部分元素比较|`some`|可以和比较运算符符`=   <>   >   >=      <   <=`组合使用 |
     |将元组与S中的全部元素比较|`all`|可以和比较运算符符`=   <>   >   >=      <   <=`组合使用|
     |检测S是否为空|`exist`|可以和逻辑运算符`not`搭配使用|
-    |检测S是否存在重复元组|`unique`|可以和逻辑运算符`not`搭配使用|   
+    |检测S是否存在重复元组|`unique`|可以和逻辑运算符`not`搭配使用|
 * 用在`from`子句中的嵌套子查询  
 与在`where`子句中不同，这里的嵌套子查询**不能使用外层查询的变量**
 * `with`子句  
