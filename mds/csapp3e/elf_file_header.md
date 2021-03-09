@@ -66,11 +66,11 @@ typedef struct{
   Elf64_Half	e_shstrndx;		/* Section header string table index */
 } Elf64_Ehdr;
 ```
-对各个字段的具体解读可以从参考资料中查到，这里不再重复，但有两个非常重要的项需要说明
+结合参考资料我们很容易得知各个字段的意义，这里不再重复，但有两个非常重要的项需要说明
 * e_shoff：section header table在ELF文件中的偏移量
 * e_phoff：program header table在ELF文件中的偏移量
 
-这两个段分别记录了链接和加载运行时的重要信息，因此它们的关系如下：
+这两个段分别记录了链接和加载运行时所有段的重要信息，因此它们的关系如下：
 
 ![elf_architecture](/imgs/elf_architecture.jpg)
 
