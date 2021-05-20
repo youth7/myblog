@@ -24,14 +24,14 @@ ELF是Executable and Linkable Format的缩写，从名称上可以看出它同�
 
 
 # ELF文件的结构
-ELF中组织信息的单位是段（section），程序编译后的机器指令、数据以及其它元信息都包含在ELF文件不同的段中，段是ELF文件保存信息的单位。
+ELF中组织信息的单位是“节”（section），程序编译后的机器指令、数据以及其它元信息都包含在ELF文件不同的节中，节是ELF文件保存信息的单位。
 
 给定一个ELF文件，要解析它首先要解决以下问题：
 
 * 这是一个什么类型的ELF文件？（在哪个平台运行？32位还是64位，是执行/重定位/共享文件）
 
-* 文件有哪些段、类型是什么？
-* 如何找到这些段（各个段的起始地址、大小是多少）？
+* 文件有哪些section、类型是什么？
+* 如何找到这些section（各个section的起始地址、大小是多少）？
 
 上述信息可以直接或者间接从ELF文件头（ELF header）中读取。从整体来看ELF可以分为两部分：ELF header和file data。ELF header包含了ELF的概要元信息，而file data包含以下数据：
 
@@ -39,7 +39,7 @@ ELF中组织信息的单位是段（section），程序编译后的机器指令�
 * Section header table（SHT）：描述了零个或者多个`sections`
 * 其它被PHT和SHT中的`项`所引用的数据
 
-> `segments`和`sections`在中文中都被翻译为“段”，关于它们之间的关系可以参考[这里](https://stackoverflow.com/questions/14361248/whats-the-difference-of-section-and-segment-in-elf-file-format)，简单来说两者分别从运行时、链接时的角度对ELF中的单元进行划分，如下图所示
+> “段”(`segments`)和“节”(`sections`)之间的关系可以参考[这里](https://stackoverflow.com/questions/14361248/whats-the-difference-of-section-and-segment-in-elf-file-format)，简单来说两者分别从运行时、链接时的角度对ELF中的单元进行划分，如下图所示
 
 ![elf.jpg](/imgs/elf.jpg)
 
@@ -67,11 +67,11 @@ typedef struct{
 } Elf64_Ehdr;
 ```
 结合参考资料我们很容易得知各个字段的意义，这里不再重复，但有两个非常重要的项需要说明
-* e_shoff：段表（section header table）在ELF文件中的偏移量
+* e_shoff：节表（section header table）在ELF文件中的偏移量
 * e_phoff：program header table在ELF文件中的偏移量
-* e_shstrndx: 段名字符串表在段表中的索引。具体关于这个字段的使用需要看段表的解析这个章节。
+* e_shstrndx: “节名字符串表”在节表中的索引。
 
-section header table和program header table分别记录了链接和加载运行时所有段的重要信息，因此它们的关系如下：
+section header table和program header table记录了程序链接和加载运行时的重要信息，它们的关系如下：
 
 ![elf_architecture](/imgs/elf_architecture.jpg)
 
@@ -79,16 +79,16 @@ section header table和program header table分别记录了链接和加载运行�
 
 ## ELF中如何存储字符串
 
-这里先说一下ELF中如何存储字符串。ELF中的元信息都是结构化的（可以将结构化理解为每一项都是定长的），这样做的好处是是的ELF能够被方便地解析，只需要每次都读取固定长度的字节就可以完整读出一条记录，同时记录中的各个字段也是固定的。例如段表里面每一条记录代表一个段，记录上面包含段的name、type和address，分别表示段的名称、类型和地址。其中name并不是直接存储段的名称，而是存了一个偏移量，根据这个偏移量再去字符串池查找就可以获取到段的真实名称。  
+这里先说一下ELF中如何存储字符串。ELF中的元信息都是结构化的（可以将结构化理解为每一项都是定长的），这样做的好处是是的ELF能够被方便地解析，只需要每次都读取固定长度的字节就可以完整读出一条记录，同时记录中的各个字段也是固定的。例如节表里面每一条记录代表一个section，记录上面包含section的name、type和address，分别表示section的名称、类型和地址。其中name并不是直接存储section的名称，而是存了一个偏移量，根据这个偏移量再去字符串池查找就可以获取到section的真实名称。  
 
-如下图所示，图中3个段的的真实名称分别是.text、.data和.symbol，它们都存在字符串池中。而name中只存储了名称在字符串池中的偏移，使用name的值去字符串池中查找（通过绿色的地址），就可以得到真实的名称了
+如下图所示，图中3个section的的真实名称分别是.text、.data和.symbol，它们都存在字符串池中。而name中只存储了名称在字符串池中的偏移，使用name的值去字符串池中查找（通过绿色的地址），就可以得到真实的名称了
 
 ![string table](/imgs/str_table.jpg)
 
-此时反过来想想，如果name直接存放字符串，则我们解析段就非常麻烦了，这体现在两个地方
+此时反过来想想，如果name直接存放字符串，则我们解析section就非常麻烦了，这体现在两个地方
 
 * 读取一条记录中的不同字段：由于不是结构化的，在读取name的时候我们需要不断检查是否读到了字符串的结束，如果是的话才继续读取type和addr。
-* 读取不同的记录：也是因为非结构化的原因，需要不断判断何时读取完段表中的一条记录。
+* 读取不同的记录：也是因为非结构化的原因，需要不断判断何时读取完section table中的一条记录。
 
 
 
@@ -97,7 +97,7 @@ section header table和program header table分别记录了链接和加载运行�
 **ELF header总是在elf文件的最前面，占据64个字节**。下面我们分别使用nodejs和Rust来读取ELF header
 
 * [Node.js版本](./js_read_elf.md)
-    
+  
 * Rust版本
 
 
