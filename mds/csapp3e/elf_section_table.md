@@ -1,8 +1,8 @@
 
 
 
-# 段表（section header table）
-我们知道源ELF是按照段（section）来组织的，源码中的不同类型的对象经过编译之后会被放入不同的段中，例如函数会被放入.text段，变量会被放入.data段。段的元信息（例如段的名称，类型，位置）记录在段表中，理解好段表是解析段的前提条件
+# 节表（section header table）
+我们知道源ELF是按照“节”（section）来组织的，源码中的不同类型的对象经过编译之后会被放入不同的段中，例如函数会被放入.text段，变量会被放入.data段。段的元信息（例如段的名称，类型，位置）记录在段表中，理解好段表是解析段的前提条件
 
  
 
@@ -71,15 +71,45 @@ sh_link和sh_info的解读和sh_type相关，具体如下
 
 因为后续要细致解释静态链接和动态链接，因此有必要先了解一下与之相关的段
 
-## 重定位段
+
 
 ## 符号表
 
-## 字符串表
+目标文件中的符号对应于源文件中的变量、函数、引用等概念，ELF中所有的符号都存在**.symtab**段（符号表）中。符号表中的每一项，包含了一个符号链接和运行时候的全部信息，在Linux中，对符号表的结构实现如下：
+
+```c
+typedef struct
+{
+  Elf64_Word	st_name;		/* Symbol name (string tbl index) */
+  unsigned char	st_info;		/* Symbol type and binding */
+  unsigned char st_other;		/* Symbol visibility */
+  Elf64_Section	st_shndx;		/* Section index */
+  Elf64_Addr	st_value;		/* Symbol value */
+  Elf64_Xword	st_size;		/* Symbol size */
+} Elf64_Sym;
+```
+
+其中有几个字段需要特别留意一下
+
+* st_value：符号的值，具体的意义与上下文相关，具体如下
+
+  | 目标文件类型 | st_shndx   | st_value的意义 |
+  | ------------ | ---------- | -------------- |
+  | 重定位文件   | SHN_COMMON | 字节对齐数     |
+
+  
+
+* st_info
 
 
 
-# 一些特殊的段
+## 重定位节
+
+## 字符串节
+
+
+
+# 一些特殊的节
 
 这些段由操作系统使用，包含了一些控制信息，其中多数为链接信息，必须要对它们有一个大致的印象
 |sh_name|sh_type|sh_flags|
@@ -109,7 +139,7 @@ sh_link和sh_info的解读和sh_type相关，具体如下
 |.symtab | SHT_SYMTAB |see below|
 |.text | SHT_PROGBITS | SHF_ALLOC + SHF_EXECINSTR|
 
-# 一个读取段表的例子
+# 一个读取节表的例子
 
 我们可以通过以下代码来读取这些信息：
 ```JAVASCRIPT
@@ -130,7 +160,7 @@ const readSectionTable = async function(header) {
 	return parsedSectionTable;
 };
 ```
-读取出来的全是整数，对于段名name，怎么把它的整数值转换为字符串？这需要用到字符串表，关与字符串表的解读请看[这里](./elf_string_table.md)
+读取出来的全是整数，怎么把它的整数值转换为字符串？这需要用到字符串表，关与字符串表的解读请看[这里](./elf_string_table.md)
 
 
 
