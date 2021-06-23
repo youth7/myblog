@@ -28,7 +28,7 @@ ELF中组织信息的单位是“节”（section），程序编译后的机器�
 
 给定一个ELF文件，要解析它首先要解决以下问题：
 
-* 这是一个什么类型的ELF文件？（在哪个平台运行？32位还是64位，是执行/重定位/共享文件）
+* 这是一个什么类型的ELF文件？（在哪个平台运行？32位还是64位，是执行、重定位、还是共享文件？）
 
 * 文件有哪些section、类型是什么？
 * 如何找到这些section（各个section的起始地址、大小是多少）？
@@ -39,7 +39,7 @@ ELF中组织信息的单位是“节”（section），程序编译后的机器�
 * Section header table（SHT）：描述了零个或者多个`sections`
 * 其它被PHT和SHT中的`项`所引用的数据
 
-> “段”(`segments`)和“节”(`sections`)之间的关系可以参考[这里](https://stackoverflow.com/questions/14361248/whats-the-difference-of-section-and-segment-in-elf-file-format)，简单来说两者分别从运行时、链接时的角度对ELF中的单元进行划分，如下图所示
+> “段”(`segments`)和“节”(`sections`)之间的关系可以参考[这里](https://stackoverflow.com/questions/14361248/whats-the-difference-of-section-and-segment-in-elf-file-format)，简单来说两者分别从运行时、链接时的角度对ELF中的单元进行划分，如下图所示，很多中文资料将`segments`和`sections`都翻译为“段”，个人觉得将它们翻译为“段”和“节”更加精准。
 
 ![elf.jpg](/imgs/elf.jpg)
 
@@ -79,16 +79,18 @@ section header table和program header table记录了程序链接和加载运行�
 
 ## ELF中如何存储字符串
 
-这里先说一下ELF中如何存储字符串。ELF中的元信息都是结构化的（可以将结构化理解为每一项都是定长的），这样做的好处是是的ELF能够被方便地解析，只需要每次都读取固定长度的字节就可以完整读出一条记录，同时记录中的各个字段也是固定的。例如节表里面每一条记录代表一个section，记录上面包含section的name、type和address，分别表示section的名称、类型和地址。其中name并不是直接存储section的名称，而是存了一个偏移量，根据这个偏移量再去字符串池查找就可以获取到section的真实名称。  
+这里先说一下ELF中如何存储字符串。ELF中的元信息都是结构化的（可以将结构化理解为每一项都是定长的），这样做的好处是ELF文件能够被方便地解析，因为只需要每次都读取固定长度的字节就可以完整读出一条记录。而记录中的各个字段长度也是固定的，同理，也可以方便地解析出各个字段。
 
-如下图所示，图中3个section的的真实名称分别是.text、.data和.symbol，它们都存在字符串池中。而name中只存储了名称在字符串池中的偏移，使用name的值去字符串池中查找（通过绿色的地址），就可以得到真实的名称了
+例如节表里面每一条记录代表一个section，每条记录被划分为3个字段：name、type和address，分别表示section的名称、类型和地址。其中name并不是直接存储section的名称，而是存了一个偏移量，根据这个偏移量再去字符串池查找就可以获取到section的真实名称。  
+
+如下图所示，图中3个section的的真实名称分别是.text、.data和.symbol，它们都存在字符串池中。而name中只存储了该section的名称的字符串在池中的偏移，使用name的值去字符串池中查找（通过绿色的地址），就可以得到真实的名称了
 
 ![string table](/imgs/str_table.jpg)
 
 此时反过来想想，如果name直接存放字符串，则我们解析section就非常麻烦了，这体现在两个地方
 
 * 读取一条记录中的不同字段：由于不是结构化的，在读取name的时候我们需要不断检查是否读到了字符串的结束，如果是的话才继续读取type和addr。
-* 读取不同的记录：也是因为非结构化的原因，需要不断判断何时读取完section table中的一条记录。
+* 读取不同的记录：也是因为非结构化的原因，需要不断判断是否读取到一条完整的记录。
 
 
 
