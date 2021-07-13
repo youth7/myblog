@@ -100,7 +100,7 @@ section header table和program header table记录了程序链接和加载运行�
 
 * [Node.js版本](./js_read_elf.md)
   
-* Rust版本
+* [Rust版本](https://github.com/youth7/read_elf/blob/main/src/section/section_entry.rs)
 
 
 
