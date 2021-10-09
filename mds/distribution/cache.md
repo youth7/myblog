@@ -1,4 +1,26 @@
-# 关于几种缓存模式的简介
+# 不同层次的缓存
+从请求过程中数据的流动方向，可以划分不同层次的缓存
+##  客户端缓存
+例如浏览器端的一些图片、css、js等缓存
+
+##  CDN缓存
+
+CDN也可以视为缓存
+
+##  Web 服务器缓存
+反向代理（比如 Nginx）和缓存（比如 Varnish）可以直接提供静态和动态内容。Web 服务器同样也可以缓存请求，返回相应结果而不必连接应用服务器。
+##  数据库缓存
+
+但是mysql8已经关闭了其中sql的缓存？
+
+##  应用缓存
+
+基于内存的缓存比如 Memcached 和 Redis 是应用程序和数据存储之间的一种键值存储。
+
+
+
+# 几种常见的更新模式
+
 常见的缓存数据访问策略有 5 种：
 
 - Cache-aside/Lazy loading：预留缓存
@@ -145,11 +167,13 @@
 # 总结
 * 所有的异常情况，都是源于并发读写的时候，缓存的更新+数据库的更新不是一个原子操作，使得在更新过程中的中间状态被其它操作观察/修改了。可以对比数据库并发读写时候出现的几种异常情况：https://en.wikipedia.org/wiki/Isolation_(database_systems)
 * 所有的方案都是一种取舍，在一致性、效率之间做权衡。
-	* 如果想要获得较强的一致性，则可以使用分布式事务进行控制，代价是降低吞吐率
-	* 如果想要提高效率，则需要容忍可能发生的数据不一致的情况
+    * 如果想要获得较强的一致性，则可以使用分布式事务进行控制，代价是降低吞吐率
+    * 如果想要提高效率，则需要容忍可能发生的数据不一致的情况
 # 参考
 [https://coolshell.cn/articles/17416.html](https://coolshell.cn/articles/17416.html)  
 [https://blog.csdn.net/yangguosb/article/details/106940229](https://blog.csdn.net/yangguosb/article/details/106940229)  
 [https://segmentfault.com/a/1190000037509415](https://segmentfault.com/a/1190000037509415)  
 http://www.ayqy.net/blog/caching/
+
+
 
