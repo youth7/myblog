@@ -13,10 +13,11 @@ https://docs.mongodb.com/manual/reference/read-concern/#readconcern-support
 * primary响应client
 * secondary响应primary
 
-现在有点疑问的是第二个，从read concern的时序图来看，只有过半数的secondary响应primary后，primary才会响应client。而secondary响应primary的时候是什么状态貌似有点模糊。从上下文推断，此时需要搞清楚两个相互独立的**知识点**
+现在有点疑问的是第二个，从read concern的时序图来看，只有过半数的secondary响应primary后，primary才会响应client。而secondary响应primary的时候是什么状态貌似有点模糊。从上下文推断，此时需要搞清楚两个**相互独立的知识点**
 
 * secondary响应primary时候的状态，应该是由write concern来确定的。对于单个secondary来说，即根据j的属性确定的，即是否日志落盘。
-* 日志落盘之后确定了这个写操作的数据即使奔溃了也不会丢失。然而此时secondary根据mvcc，是有多个版本的数据的，包括local、available、majority，最新的数据可能处于local状态，而处于majority状态的数据可能是上一次写的结果。可以对比不同的read concern下的时序图中secondary节点对write0的可见性来确定这一点。同时需要留意，无论哪种read concern，都需要等到t6之后才使得整个集群的所有节点都能看到write0。
+* 日志落盘之后确定了这个写操作的数据即使奔溃了也不会丢失。然而此时secondary根据mvcc，是有多个版本的数据的，包括local、available、majority，最新的数据可能处于local状态，而处于majority状态的数据可能是上一次写的结果。**可以对比不同的read concern下的时序图中secondary节点对write0的可见性来确定这一点**。同时需要留意，无论哪种read concern，都需要等到t6之后才使得整个集群的所有节点都能看到write0。
+* 可知，读secondary的时候，即使read concern为majority，依然有可能是读到旧的数据（此时majority为上一次的写，当前的写可能为local）。而因果一致性可以避免这个问题。因此开启因果一致性session的时候，是**同时读取了多个节点的数据，通过比较来确定哪个版本是最新的**。
 
 # read concern
 
