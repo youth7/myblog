@@ -12,5 +12,5 @@
 
 # 第7章 链接
 ## [ELF和ELF头部](elf_file_header.md)
-## [ELF的段表](elf_section_table.md)
+## [ELF的节表](elf_section_table.md)
 
