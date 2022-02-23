@@ -64,6 +64,8 @@ https://grpc.io/docs/what-is-grpc/faq/
 
 ### 服务发现
 
+服务的注册和发现可以参考腾讯技术功能的：[深入了解服务注册与发现](https://zhuanlan.zhihu.com/p/161277955)
+
 * 应用层服务发现
 
   包含两个模式：客户端发现 + 服务自注册（弊端是不同类型的客户端需要自己编写相同逻辑的代码，例如java和go客户端都要编写类似的代码去访问同一个后端服务）
@@ -121,9 +123,9 @@ https://grpc.io/docs/what-is-grpc/faq/
   * 刚性事务：由XA、2PC、3PC为代表的事务
   * 补偿性事务：例如Saga、TCC
   
-  整体来看分为刚性事务和补偿性事务两种，刚性事务依赖于RM的事务机制，作用于数据层。
+  整体来看分为刚性事务和补偿性事务两种，刚性事务依赖于RM的事务机制，作用于**数据层**。
   
-  而补偿事务将长事务分解为多个本地事务，然后通过类似Saga的补偿机制执行。补偿事务是应用层的事务，优点是在`long-run`的事务中能够提高吞吐，这是通过牺牲隔离性换来的。
+  而补偿事务将长事务分解为多个本地事务，然后通过类似Saga的补偿机制执行。补偿事务是**应用层的事务**，优点是在`long-run`的事务中能够提高吞吐，这是通过牺牲隔离性换来的。
   
 * 事务并发控制的方法（https://draveness.me/database-concurrency-control/）
   * 锁
@@ -179,6 +181,21 @@ Saga事务的优点是提高了系统的效率，弊端是没有隔离性，需�
 
 # 7 实现查询
 
+## API组合器
+
+优点：
+
+缺点：
+
+	* 增加额外的开销。与单体应用相比，它需要调用多个服务提供的API
+	* 可用性降低的风险。因为依赖多个其它服务
+	* 缺乏事务的一致性（**重点**）
+	* 无法支持需要*大规模的数据内存连接的查询
+
+
+
+## CQRS
+
 # 8 外部API设计
 
 ## 谁在使用API
@@ -204,18 +221,24 @@ Saga事务的优点是提高了系统的效率，弊端是没有隔离性，需�
 
 **主要职责**：
 
-* 请求路由：
-* API组合：
+* **请求路由（非常重要）**：
+* **API组合（非常重要）**：
 * 协议转换
 * 为不同类型的客户端提供专用的API
-* 实现边缘功能（其实这些也能在服务中实现），包括：
+* **实现边缘功能，包括**：
   * 身份验证、授权
   * 速率限制
   * 缓存 
   * 指标收集
   * 请求日志
 
+**注意：网关代理的是南北流量，网格代理的是东西流量，两者是不同的！严格来说它们是两种不同职责的模块，但是目前的趋势是Gateway和Service Mesh都相互集成对方的功能，例如Kong官网号称的下一代网关就集成Service Mesh（[What is the Purpose of an API Gateway? - konghq.com](https://konghq.com/learning-center/api-gateway/)）**
 
+可以参考一下：
+
+* [《万字长文梳理：从0开始，步入Service Mesh微服务架构的世界》](https://mp.weixin.qq.com/s?__biz=Mzg4MjYzMjI1MA==&mid=2247517557&idx=1&sn=e8d578e356706828228ff68e1be63bc5&source=41#wechat_redirect) 
+* [《为什么在使用了 Kubernetes 后你可能还需要 Istio》](https://jimmysong.io/blog/why-do-you-need-istio-when-you-already-have-kubernetes/)
+* [服务网格与 API 网关的关系](https://jimmysong.io/kubernetes-handbook/usecases/service-mesh-vs-api-gateway.html)
 
 ## API Gateway的架构
 
