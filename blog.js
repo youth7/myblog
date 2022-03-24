@@ -7,7 +7,7 @@ require("./lib/hijack_console");
 const loadFiles = require("./lib/load_files");
 
 function extractIp(req){
-	return req.headers;
+	return (req.socket.remoteAddress);
 }
 
 function getArticle(req, res) {
@@ -50,7 +50,6 @@ async function showContent(req, res, pathname, type) {
 }
 
 function show404(req, res) {
-	console.log(req.headers);
 	console.error(`非法路径请求${req.url}，来源是`, extractIp(req));
 	res.statusCode = 404;
 	res.end();
