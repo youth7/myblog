@@ -7,7 +7,7 @@ require("./lib/hijack_console");
 const loadFiles = require("./lib/load_files");
 
 function extractIp(req){
-	return req.socket.address();
+	return req.headers;
 }
 
 function getArticle(req, res) {
