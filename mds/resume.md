@@ -97,6 +97,7 @@
 * 负责模块：主要开发以下的内部库
     * 位图转SVG（[成果演示：http://42.192.120.189/imgs/b2s.jpg](http://42.192.120.189/imgs/b2s.jpg)）
     * 动画协议开发（[成果演示：http://42.192.120.189/imgs/binary_tree_api.jpg](http://42.192.120.189/imgs/binary_tree_api.jpg)）
+    * 错误区域自动检测算法（[成果演示：http://42.192.120.189/imgs/formal_analysis.jpg](http://42.192.120.189/imgs/formal_analysis.jpg)）
 * 技术难点：
     * 对开放性问题进行信息收集、分析、设计、实现，并取得阶段性成果
 
