@@ -23,3 +23,7 @@ summery is given in this comment by Shepmaster: "It [the deref algorithm] will d
 * 自动解引用：https://stackoverflow.com/questions/28519997/what-are-rusts-exact-auto-dereferencing-rules
 * 自动引用：https://doc.rust-lang.org/book/ch05-03-method-syntax.html#wheres-the---operator
 
+
+
+另外可以参考一下[数组和切片类型转换](./array_slice_coerce.md)
+
