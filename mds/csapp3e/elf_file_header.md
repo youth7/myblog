@@ -66,12 +66,14 @@ typedef struct{
   Elf64_Half	e_shstrndx;		/* Section header string table index */
 } Elf64_Ehdr;
 ```
-结合参考资料我们很容易得知各个字段的意义，这里不再重复，但有两个非常重要的项需要说明
+结合参考资料我们很容易得知各个字段的意义，这里不再重复，但有3个非常重要的项需要说明
 * e_shoff：节表（section header table）在ELF文件中的偏移量
-* e_phoff：program header table在ELF文件中的偏移量
+* e_phoff：段表（program header table）在ELF文件中的偏移量
 * e_shstrndx: “节名字符串表”在节表中的索引。
 
-section header table和program header table记录了程序链接和加载运行时的重要信息，它们的关系如下：
+记录了程序链接和加载运行时的重要信息，它们的关系如下，
+
+简单来说ELF header索引了section header table和program header table，而后者分别从**链接和运行**的角度对ELF文件中的其它内容进行了索引，所以ELF header是一级索引，后者是二级索引。
 
 ![elf_architecture](/imgs/elf_architecture.jpg)
 
