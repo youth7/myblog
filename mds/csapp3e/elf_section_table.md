@@ -99,7 +99,11 @@ typedef struct
 
 ## 重定位节
 
+未完成
+
 ## 字符串节
+
+见[ELF和ELF头部](/csapp3e/elf_file_header.md)中的相关章节
 
 # 一些特殊的节
 
