@@ -5,6 +5,7 @@
   * cargo
   * Attribute
   * 编译器设置
+  * Rust裸机编程
 
 * QEMU基础
 
@@ -14,11 +15,24 @@
 
 * ELF基础
 
-  
+
+
 
 # Rust基础
 
+## cargo（未完成）
+
+## Attribute（未完成）
+
+## 编译器设置（未完成）
+
+## Rust裸机编程（未完成）
+
+## 
+
 # QEMU基础
+
+## 简介
 
 QEMU是一个**模拟器**，可以模拟除了CPU外等众多设备。注意QEMU和virtualbox之类是有区别的，前者具emulation和virtualization的能力，而后者只有virtualization的能力，关于两者的区别可以参考[这里](https://stackoverflow.com/questions/6234711/what-are-the-specific-differences-between-an-emulator-and-a-virtual-machine)
 
@@ -31,12 +45,26 @@ QEMU的两种模式：
   * 线程模型
 
 
-## QEMU命令行可选项
+
+## QEMU监视器（[QEMU monitor](https://www.QEMU.org/docs/master/system/monitor.html)）
+
+QEMU 运行时会提供一个监视器console用来与用户交互。使用监视器console中提供的命令可以检查运行中的操作系统、插拔媒体设备、抓取屏幕截图或音频片段，以及控制虚拟机的其他方面。 
+
+> 与其他的虚拟化程序如 [VirtualBox](https://wiki.archlinux.org/title/VirtualBox) 和 [VMware](https://wiki.archlinux.org/title/VMware) 不同, QEMU不提供管理虚拟机的GUI（运行虚拟机时出现的窗口除外），也不提供创建具有已保存设置的持久虚拟机的方法。除非您已创建自定义脚本以启动虚拟机，否则必须在每次启动时在命令行上指定运行虚拟机的所有参数。
+
+参考资料:
+
+* [QEMU (简体中文)](https://wiki.archlinux.org/title/QEMU_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)#QEMU_%E7%9B%91%E8%A7%86%E5%99%A8)
+
+* [使用 QEMU 监视器管理虚拟机](https://documentation.suse.com/zh-cn/sles/15-SP2/html/SLES-all/cha-qemu-monitor.html#sec-qemu-monitor-access)
+
+
+## 启动QEMU时的命令行选项
 
 具体参考[文档](https://www.QEMU.org/docs/master/system/invocation.html)：这些命令行选项按照功能可分为多种类型，而课程中用到的参数有：
 
 * -machine：指定需要模拟的机器。这里指定的貌似是整机芯片组的架构而不仅仅是cpu架构，可以参考[这里](https://xiaobinzhao.github.io/2021/12/14/QEMU%20%20Machine%20Type/)
-* -nographic：禁用图形化，串口设备的输出会被重定向到[QEMU monitor](https://www.QEMU.org/docs/master/system/monitor.html)
+* -nographic：禁用图形化，串口设备的输出会被重定向到QEMU monitor
 * -bios：通过文件名指定BIOS程序
 * --device：模拟一个设备，关于设备的模拟请看[这里](https://www.QEMU.org/docs/master/system/device-emulation.html)，需要了解的概念有：
   * 设备前端：A device front end is how a device is presented to the guest. The type of device presented should match the hardware that the guest operating system is expecting to see.
@@ -45,11 +73,11 @@ QEMU的两种模式：
   * 设备Pass Through：模拟设备的输出数据是如何被QEMU处理的。
 
 
-## QEMU的快捷键
+## QEMU运行时的快捷键
 
 * 图形化前端设备的快捷键见[这里](https://www.QEMU.org/docs/master/system/keys.html)
 
-* 字符后端设备的快捷键见[这里](https://www.QEMU.org/docs/master/system/mux-chardev.html)（这里能使用的命令都是用`Ctrl-a`作为前缀转义过的，似乎是为了区别[monitor](https://www.QEMU.org/docs/master/system/monitor.html)中可用的命令），常用的有：
+* 字符后端设备的快捷键见[这里](https://www.QEMU.org/docs/master/system/mux-chardev.html)（这里能使用的命令都是用`Ctrl-a`作为前缀转义过的，似乎是为了区别QEMU monitor中可用的命令，常用的有：
   * Ctrl-a x：退出模拟器
 
 
