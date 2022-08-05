@@ -1,6 +1,6 @@
 # 《The embedonomicon》
 
-# 前言
+# 0 前言
 
 [《The embedonomicon》](https://docs.rust-embedded.org/embedonomicon/preface.html)包含了以下内容：
 
@@ -44,7 +44,7 @@
 
 
 
-# 最小的`#![no_std]`程序
+# 1 最小的`#![no_std]`程序
 
 ## std和core
 
@@ -163,7 +163,38 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 
 
-# 内存布局
+# 2 内存布局
+
+这一章主要是讲如何生成正确结构的二进制文件，使其能够在特定架构的CPU上运行。要实现这个目标就必须：
+
+* 了解CPU对二进制文件结构的要求
+* 通过Rust调整二进制文件结构
+* 通过链接器调整二进制文件结构
+
+
+
+
+
+## 了解CPU对二进制文件结构的要求
+
+教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档，目前对我们来说最重要的是：**[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 必须位于 [code memory region](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/memory-model)的起始位置**。
+
+vector_table是一个指针数组，其前两个指针最为重要，跟启动设备相关，剩下的则用于异常处理。
+
+* 第1个指针：用于初始化运行时的栈顶；
+* 第2个指针：指向reset vector。reset vector指向了一个函数，这个函数会在系统被重置或者加电时运行，它是程序帧栈里面的第一帧。
+
+所以我们需要做的事情就是
+
+
+
+## 通过Rust调整二进制文件结构
+
+## 通过链接器调整二进制文件结构
+
+## 检查与测试
+
+
 
 # `main`接口
 
