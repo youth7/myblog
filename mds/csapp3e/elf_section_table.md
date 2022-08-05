@@ -1,8 +1,12 @@
 # 节表（section header table）
 
-我们知道源ELF是按照节（section）来组织的，源码中的不同类型的对象经过编译之后会被放入不同的节中，例如函数会被放入.text节，变量会被放入.data节。节的元信息（例如节的名称，类型，位置）记录在节表中，理解好节表是解析节的前提条件
+> [https://en.wikipedia.org/wiki/Executable_and_Linkable_Format](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)完成、细致、直观地用表格描述了节表的结构，强烈推荐
 
-节表由若干条格式相同的记录组成，每条记录的结构是固定的，在Linux中对节表的实现如下：
+
+
+我们知道源ELF是按照节（section）来组织的，源码中的不同类型的对象经过编译之后会被放入不同的节中，例如函数会被放入`.text`节，变量会被放入`.data`节。**节的元信息记录在节表中**，理解好节表是解析节的前提条件
+
+节表由若干条格式相同的记录组成，在Linux中对节表的实现如下：
 
 ```C
 typedef struct {
@@ -19,39 +23,63 @@ typedef struct {
 } Elf64_Shdr;
 ```
 
-各自的详细意义可以从注释中得知，网上也有很多参考资料，这里不再重复，不过有几个字段需要额外说明：
+这些元信息包括节的以下内容：
 
-## sh_type
+| 名称           | 意义                                           |
+| -------------- | ---------------------------------------------- |
+| sh_name        | 名称                                           |
+| **sh_type**    | 类型，具体意义见下表                           |
+| sh_flags       | 表示该节的某项属性是否打开，这些属性具体见下表 |
+| sh_addr        | 执行时的虚拟地址                               |
+| **sh_offset**  | 在ELF文件中的偏移量                            |
+| **sh_size**    | 大小                                           |
+| sh_link        | 与该节有关系的另外一个节的索引                 |
+| sh_info        | 一些额外的信息，需要配合sh_link一起解读        |
+| sh_addralign   | 该节对齐时的单位                               |
+| **sh_entsize** | 如果该节是表格类型的话，表格中每一条记录的大小 |
 
-sh_type中的取值范围如下
+## `sh_flags`
 
-| 名称           | 值          |
-| ------------ | ---------- |
-| SHT_NULL     | 0          |
-| SHT_PROGBITS | 1          |
-| SHT_SYMTAB   | 2          |
-| SHT_STRTAB   | 3          |
-| SHT_RELA     | 4          |
-| SHT_HASH     | 5          |
-| SHT_DYNAMIC  | 6          |
-| SHT_NOTE     | 7          |
-| SHT_NOBITS   | 8          |
-| SHT_REL      | 9          |
-| SHT_SHLIB    | 10         |
-| SHT_DYNSYM   | 11         |
-| SHT_LOPROC   | 0x70000000 |
-| SHT_HIPROC   | 0x7fffffff |
-| SHT_LOUSER   | 0x80000000 |
-| SHT_HIUSER   | 0xffffffff |
+只列出Linux中实现了的几项，完整的内容参考[wiki](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
 
-每种类型的意义可从参考资料中查到这里不再重复，不过其中有两组比较相似需要解释一下：
+| 名称          | 意义                     |
+| ------------- | ------------------------ |
+| SHF_WRITE     | 运行时是否可写           |
+| SHF_ALLOC     | 运行时是否为该节分配内存 |
+| SHF_EXECINSTR | 是否可执行               |
+| SHF_MASKPROC  | 具体作用跟CPU相关        |
 
-* SHT_SYMTAB 和SHT_DYNSYM：前者包含全部符号，后者只包含动态链接时候需要的符号，是前者的一个子集。原因是前者很多信息在动态链接用不上。
-* SHT_REL和SHT_RELA：都是重定位节，区别是后者带有explicit addends
+## `sh_type`
 
-## sh_link和sh_info
+`sh_type`的可选值如下：
 
-sh_link和sh_info的解读和sh_type相关，具体关系如下：
+| 名称         | 值         | 意义                                                         |
+| ------------ | ---------- | ------------------------------------------------------------ |
+| SHT_NULL     | 0          | 表明这是一个无效的节，更多解释可以看[这里](https://stackoverflow.com/questions/26812142/what-is-the-use-of-the-sht-null-section-in-elf) |
+| SHT_PROGBITS | 1          | 节包含代码数据                                               |
+| SHT_SYMTAB   | 2          | **符号表，非常重要**                                         |
+| SHT_STRTAB   | 3          | **字符串表，非常重要**                                       |
+| SHT_RELA     | 4          |                                                              |
+| SHT_HASH     | 5          |                                                              |
+| SHT_DYNAMIC  | 6          |                                                              |
+| SHT_NOTE     | 7          |                                                              |
+| SHT_NOBITS   | 8          |                                                              |
+| SHT_REL      | 9          |                                                              |
+| SHT_SHLIB    | 10         |                                                              |
+| SHT_DYNSYM   | 11         |                                                              |
+| SHT_LOPROC   | 0x70000000 |                                                              |
+| SHT_HIPROC   | 0x7fffffff |                                                              |
+| SHT_LOUSER   | 0x80000000 |                                                              |
+| SHT_HIUSER   | 0xffffffff |                                                              |
+
+其中有两组比较相似需要解释一下：
+
+* `SHT_SYMTAB` 和`SHT_DYNSYM`：前者包含全部符号，后者只包含动态链接时候需要的符号，是前者的一个子集。原因是前者很多信息在动态链接用不上。
+* `SHT_REL`和`SHT_RELA`：都是重定位节，区别是后者带有explicit addends（什么东西？）
+
+## `sh_link`和`sh_info`
+
+`sh_link`和`sh_info`的解读和`sh_type`相关，具体关系如下：
 
 | sh_type                 | sh_link                                                                           | sh_info                                                                               |
 | ----------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
