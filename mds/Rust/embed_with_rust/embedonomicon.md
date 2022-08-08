@@ -46,6 +46,8 @@
 
 # 1 最小的`#![no_std]`程序
 
+> 本节完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program](https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program)
+
 ## std和core
 
 **[`std`](https://doc.rust-lang.org/std/)**
@@ -155,8 +157,6 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 我个人的疑问是这两个设定是相互独立的吗，还是说默认的`#[panic_handler]`实现里面包含了`eh_personality`？
 
-
-
 但无论如何，**在本文的运行环境下并不需要对`eh_personality`做任何修改**
 
 > 另：eh应该是exception handling的缩写，见[这里的讨论](https://www.reddit.com/r/rust/comments/estvau/til_why_the_eh_personality_language_item_is/)
@@ -168,29 +168,104 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 这一章主要是讲如何生成正确结构的二进制文件，使其能够在特定架构的CPU上运行。要实现这个目标就必须：
 
 * 了解CPU对二进制文件结构的要求
-* 通过Rust调整二进制文件结构
+* 编写Rust代码
 * 通过链接器调整二进制文件结构
-
-
 
 
 
 ## 了解CPU对二进制文件结构的要求
 
-教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档，目前对我们来说最重要的是：**[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 必须位于 [code memory region](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/memory-model)的起始位置**。
+教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档，目前对我们来说最重要的是：
 
-vector_table是一个指针数组，其前两个指针最为重要，跟启动设备相关，剩下的则用于异常处理。
+>  **初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**
 
-* 第1个指针：用于初始化运行时的栈顶；
-* 第2个指针：指向reset vector。reset vector指向了一个函数，这个函数会在系统被重置或者加电时运行，它是程序帧栈里面的第一帧。
+vector_table是一个指针数组，里面每个元素（vector）都指向了某个内存地址（大部分是异常处理函数的起始地址），关于它的具体结构可以看[这里](https://documentation-service.arm.com/static/5ea823e69931941038df1b02?token=)。对本教程来说最重要的是前2个指针：
 
-所以我们需要做的事情就是
+* 第1个：（`Initial SP value`）栈顶指针，用于初始化栈
+* 第2个：（`Reset`）指向了`reset handler`，它是一个函数，会在系统被重置或者加电时运行（同时也是程序栈帧里面的第一帧）。
+
+所以我们需要做的事情就是：
+
+1. 在Rust代码中编写`reset handler`函数，并将其暴露出来以供链接脚本使用
+2. 结合步骤1，通过链接脚本将vector table前两个元素的值设置好
+
+> vector_table属于异常模型的一部分，里面每个vector指向的对象都跟异常处理相关。`Initial SP value`和`Reset`其实也可以理解为当系统因异常重启时需要如何初始化系统系统。
+>
+> 系统重置的时候，vector_table的默认地址是0x00000000，可以通过修改`VTOR（Vector Table Offset Register）`来调整vector_table的默认地址。
+
+## 编写Rust代码
+
+后续会用到一些跟编译相关的attribute，这里先统一介绍
+
+* `#[export_name = "foo"]` 指定源码中的某个变量、函数编译后的符号名为 `foo`.
+* `#[no_mangle]` 使用变量、函数在源码中的名称作为符号名
+* `#[link_section = ".bar"]` 将符号放置到名为 `.bar`的节中
+
+首先编写`reset handler`函数，它是系统栈帧中的第一个帧，从第一个帧返回是一种未定义行为，因此这个函数永远不能退出，即它必须是一个发散函数
+
+```rust
+#[no_mangle]
+pub unsafe extern "C" fn Reset() -> ! {
+    let _x = 42;
+    //永不退出的发散函数
+    loop {}
+}
+
+//说明这个函数需要编译到名称为.vector_table.reset_vector的这个节中，这个节在后面会被引用到
+#[link_section = ".vector_table.reset_vector"]
+//告诉编译器不要用Rust的命名规则为Reset重命名，保留原来的名称就好
+#[no_mangle]
+//RESET_VECTOR就是vector table中的第二个元素，指向了异常处理函数Reset
+//其实这里不太明白为何要多用一个变量RESET_VECTOR而不是直接使用Reset函数
+pub static RESET_VECTOR: unsafe extern "C" fn() -> ! = Reset;
+```
 
 
-
-## 通过Rust调整二进制文件结构
 
 ## 通过链接器调整二进制文件结构
+
+创建一个名为link.x的文件，其内容为：
+
+```link
+/* Memory layout of the LM3S6965 microcontroller */
+/* 1K = 1 KiBi = 1024 bytes */
+MEMORY
+{
+  FLASH : ORIGIN = 0x00000000, LENGTH = 256K
+  RAM : ORIGIN = 0x20000000, LENGTH = 64K
+}
+
+/* The entry point is the reset handler */
+ENTRY(Reset);
+
+EXTERN(RESET_VECTOR);
+
+SECTIONS
+{
+  .vector_table ORIGIN(FLASH) :
+  {
+    /* First entry: initial Stack Pointer value */
+    LONG(ORIGIN(RAM) + LENGTH(RAM));
+
+    /* Second entry: reset vector */
+    KEEP(*(.vector_table.reset_vector));
+  } > FLASH
+
+  .text :
+  {
+    *(.text .text.*);
+  } > FLASH
+
+  /DISCARD/ :
+  {
+    *(.ARM.exidx .ARM.exidx.*);
+  }
+}
+```
+
+
+
+
 
 ## 检查与测试
 
