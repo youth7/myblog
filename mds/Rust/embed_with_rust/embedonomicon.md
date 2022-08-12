@@ -30,7 +30,7 @@
     * cargo-binutils：直接使用最新
     
 * QEMU模拟器
-    
+  
     采用7.0.0版本（[qemu-w64-setup-20220419.exe](https://qemu.weilnetz.de/w64/qemu-w64-setup-20220419.exe)）
     
 * gdb工具
@@ -53,7 +53,7 @@
 
 # 1 最小的`#![no_std]`程序
 
-> 本节完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program](https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program)
+这个章节主要是写一个`#![no_std]`版的hello world程序，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program](https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program)
 
 ## std和core
 
@@ -95,7 +95,7 @@ fn panic(_panic: &PanicInfo<'_>) -> ! {
 
 依次使用以下2个命令将源码编译为目标文件，并查看其中的符号
 
-```bash
+```powershell
 # 编译代码，--target是cargo命令的参数,指定了编译产物的目标平台，详情参考cargo book
 # --emit指定了编译产物的文件类型，详情参考rustc book
 cargo rustc --target thumbv7m-none-eabi -- --emit=obj
@@ -106,20 +106,20 @@ rust-nm  target/thumbv7m-none-eabi/debug/deps/app-*.o
 
 此时的输出为
 
-```bash
+```powershell
 00000000 T rust_begin_unwind
 ```
 
 
 
 如果你安装了wsl2的话，可以用其它命令来查看符号，例如使用`readelf`来查看
-```bash
+```powershell
 readelf -s ./target/thumbv7m-none-eabi/debug/deps/*.o
 ```
 
 控制台输出：
 
-```bash
+```powershell
 Symbol table '.symtab' contains 10 entries:
    Num:    Value  Size Type    Bind   Vis      Ndx Name
      0: 00000000     0 NOTYPE  LOCAL  DEFAULT  UND
@@ -136,13 +136,13 @@ Symbol table '.symtab' contains 10 entries:
 
 或者使用`nm`来查看
 
-```bash
+```powershell
 nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 ```
 
 控制台输出：
 
-```bash
+```powershell
 00000000 t $t.0
 00000001 T rust_begin_unwind
 ```
@@ -172,7 +172,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 # 2 内存布局
 
-> 本章节完整代码见[https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout](https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout)
+这个章节主要是介绍如何通过各种工具来调整内存布局，使得生成的二进制程序能够在裸机上运行，并通过gdb来验证生成的程序是否正确，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout](https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout)
 
 这一章主要是讲如何生成正确结构的二进制文件，使其能够在特定架构的CPU上运行。要实现这个目标就必须：
 
@@ -295,9 +295,7 @@ SECTIONS
 
 链接器会从entry指定的函数开始，从目标文件中递归搜索所有用到的符号，一旦所有符合解析完成了就停止，即使此时还有目标文件未被搜索。`EXTERN`的作用是强制链接器去继续解析被`EXTERN`作为参数的符号，例如本节中的`RESET_VECTOR`。
 
-一开始不太明白为何要多用一个变量`RESET_VECTOR`而不是直接使用`Reset`函数，后来发现Reset函数是被编译到`.text`节中的，
-
-这样后续要继续引用`Reset`的地址会比较麻烦，用`RESET_VECTOR`来保存`Reset`的地址并放到`.vector_table.reset_vecto`r中有利于在链接脚本中引用该地址
+一开始不太明白为何要多用一个变量`RESET_VECTOR`而不是直接使用`Reset`函数，后来发现Reset函数是被编译到`.text`节中的。这使得后续要继续引用`Reset`的地址会比较麻烦，用`RESET_VECTOR`来保存`Reset`的地址并放到`.vector_table.reset_vecto`r中有利于在链接脚本中引用该地址
 
 ### [SECTIONS](https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_chapter/ld_3.html#SEC17)
 
@@ -326,14 +324,14 @@ target = "thumbv7m-none-eabi"
 
 先使用`cargo build --bin app`编译项目。成功后使用以下命令来检查结果是否符合预期
 
-```bash
+```powershell
 # 使用rust-objdump去检查最终生成的可执行文件中的汇编代码
 rust-objdump -d --no-show-raw-insn .\target\thumbv7m-none-eabi\debug\app
 ```
 
 此时输出为：
 
-```bash
+```powershell
 .\target\thumbv7m-none-eabi\debug\app:  file format elf32-littlearm
 
 Disassembly of section .text:
@@ -350,14 +348,14 @@ Disassembly of section .text:
 
 保险起见我们还需要检查一下vector table，使用以下命令：
 
-```bash
+```powershell
 # 使用rust-objdump去检查最终生成的可执行文件中指定节的具体内容
 rust-objdump -s --section .vector_table .\target\thumbv7m-none-eabi\debug\app
 ```
 
 此时的输出为
 
-```bash
+```powershell
 .\target\thumbv7m-none-eabi\debug\app:  file format elf32-littlearm
 Contents of section .vector_table:
  0000 00000120 09000000                    ... ....
@@ -403,16 +401,13 @@ $2 = 42
 (gdb) print &_x				#打印变量_x的地址
 $3 = (*mut i32) 0x2000fffc
 (gdb) quit					#退出
-
 ```
 
 
 
-
-
-
-
 # `main`接口
+
+本章节主要介绍了如何将上一章节的成果转化为库，以便其他人在此基础上开发自己的应用程序。
 
 # 异常处理
 
