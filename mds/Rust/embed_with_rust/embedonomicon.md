@@ -405,9 +405,139 @@ $3 = (*mut i32) 0x2000fffc
 
 
 
-# `main`接口
+# 3 `main`接口
 
-本章节主要介绍了如何将上一章节的成果转化为库，以便其他人在此基础上开发自己的应用程序。
+本章节主要介绍了如何将上一章节的成果从binary package转化为lib package，以便其他开发者可以使用它来开发自己的应用程序。这样相当于建立了一个抽象层，屏蔽了裸机相关的内容。开发者只需编写自己的`main`程序即可，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface](https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface)
+
+为了达到这个目标，我们需要将之前的项目改为lib package（名为rt，即runtime的意思），然后再新建一个binary package（名为app），然后在`app`中引用`rt`。
+
+## 将原项目改造名为`rt`的lib package
+
+首先将之前类型为binary的package改为lib类型，这需要：
+
+* `main.rs`重命名为`lib.rs`
+
+* 把`Cargo.toml`中`[package]`的`name`改为`rt`，同时将项目根目录重命名为`rt`
+
+  ```toml
+  [package]
+  name = "rt" #修改这里
+  version = "0.1.0"
+  edition = "2021"
+  ```
+
+
+* 改写`Reset`函数，让它去调用用户编写的`main`函数，注意这里只列出了改写的部分
+
+  ```rust
+  #![no_std]
+  
+  use core::panic::PanicInfo;
+  
+  // CHANGED!
+  #[no_mangle]
+  pub unsafe extern "C" fn Reset() -> ! {
+      extern "Rust" {
+          fn main() -> !;//将控制权交给用户的main函数，因此main必须是发散的
+      }
+  
+      main()
+  }
+  ```
+
+* 在根目录创建`build.rs`，这是非常关键的一步，原理是通过Rust提供的[构建脚本](https://doc.rust-lang.org/stable/cargo/reference/build-scripts.html#build-scripts)来调整一些编译时的行为，请看考代码中的注释
+
+  ```rust
+  use std::{env, error::Error, fs::File, io::Write, path::PathBuf};
+  
+  fn main() -> Result<(), Box<dyn Error>> {
+      //从环境变量OUT_DIR中读取一个路径，用于存放构建过程的一些中间产物
+      let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+  
+      //这是最重要的一步了，通过特定的指令告诉编译器从哪个路径搜索链接脚本
+      println!("cargo:rustc-link-search={}", out_dir.display());
+  
+      // 将链接脚本复制到上一步指定的路径
+      // 如果在上一步中将链接脚本的搜索路径设置为库的根目录，则这一步可以省略
+      File::create(out_dir.join("link.x"))?.write_all(include_bytes!("link.x"))?;
+  
+      Ok(())
+  }
+  ```
+  
+
+注意：当`build.rs`被保存后会自动被cargo编译执行，最终生成相关文件，这些文件会在编译`app`时被使用，千万不能删除它们，否则后续编译`app`时会找不到链接文件而报错
+
+
+
+
+
+## 使用`rt`编写应用程序
+
+创建一个binary package
+
+```powershell
+cargo new --bin app
+```
+
+修改`cargo.toml`，引入`rt`作为依赖
+
+```toml
+[dependencies]
+rt = { path = "../rt" }
+```
+
+将`rt`中`.cargo`文件夹复制到`app`的根目录，使用和`rt`一样的cargo配置编译。
+
+最后编写自己的`main.rs`
+
+```rust
+#![no_std]
+#![no_main]
+
+extern crate rt;
+
+#[no_mangle]
+pub fn main() -> ! {
+    let _x = 42;
+
+    loop {}
+}
+```
+
+然后编译并检查二进制文件
+
+```powershell
+cargo build --bin app # 编译
+rust-objdump   -d --no-show-raw-insn .\target\thumbv7m-none-eabi\debug\app # 显示汇编代码
+```
+
+会有如下输出，可以看到`Reset`已经被链接进来并调用了`main`函数
+
+```powershell
+.\target\thumbv7m-none-eabi\debug\app:  file format elf32-littlearm
+
+Disassembly of section .text:
+
+00000008 <main>:
+       8:       sub     sp, #4
+       a:       movs    r0, #42
+       c:       str     r0, [sp]
+       e:       b       0x10 <main+0x8>         @ imm = #-2
+      10:       b       0x10 <main+0x8>         @ imm = #-4
+
+00000012 <Reset>:
+      12:       push    {r7, lr}
+      14:       mov     r7, sp
+      16:       bl      0x8 <main>              @ imm = #-18
+      1a:       trap
+```
+
+
+
+注：其实`app`的`.cargo/config`里面的`rustflags`配置项包含了`link.x`，说明`app`对`rt`还是有些显式依赖的，不知道后续有无办法能够移除这个配置项，使得app无需知道rt中的任何内容。
+
+
 
 # 异常处理
 
