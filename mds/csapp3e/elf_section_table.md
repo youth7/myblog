@@ -38,16 +38,7 @@ typedef struct {
 | sh_addralign   | 该节对齐时的单位                               |
 | **sh_entsize** | 如果该节是表格类型的话，表格中每一条记录的大小 |
 
-## `sh_flags`
 
-只列出Linux中实现了的几项，完整的内容参考[wiki](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
-
-| 名称          | 意义                     |
-| ------------- | ------------------------ |
-| SHF_WRITE     | 运行时是否可写           |
-| SHF_ALLOC     | 运行时是否为该节分配内存 |
-| SHF_EXECINSTR | 是否可执行               |
-| SHF_MASKPROC  | 具体作用跟CPU相关        |
 
 ## `sh_type`
 
@@ -77,6 +68,21 @@ typedef struct {
 * `SHT_SYMTAB` 和`SHT_DYNSYM`：前者包含全部符号，后者只包含动态链接时候需要的符号，是前者的一个子集。原因是前者很多信息在动态链接用不上。
 * `SHT_REL`和`SHT_RELA`：都是重定位节，区别是后者带有explicit addends（什么东西？）
 
+
+
+## `sh_flags`
+
+只列出Linux中实现了的几项，完整的内容参考[wiki](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)
+
+| 名称          | 意义                     |
+| ------------- | ------------------------ |
+| SHF_WRITE     | 运行时是否可写           |
+| SHF_ALLOC     | 运行时是否为该节分配内存 |
+| SHF_EXECINSTR | 是否可执行               |
+| SHF_MASKPROC  | 具体作用跟CPU相关        |
+
+
+
 ## `sh_link`和`sh_info`
 
 `sh_link`和`sh_info`的解读和`sh_type`相关，具体关系如下：
@@ -90,6 +96,8 @@ typedef struct {
 | 其它                      | SHN_UNDEF                                                                         | 0                                                                                     |
 
 简单来说，sh_link指向了和当前节有关联的其它节（例如符号表或者字符串）
+
+
 
 # 一些重要的节
 
