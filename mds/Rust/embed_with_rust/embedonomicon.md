@@ -638,7 +638,7 @@ fn main2() -> ! {
 * 编译和链接时会确定一些信息并将它们记录到ELF中，这些信息包括：
   * 变量`BSS`和`DATA`的值（它们分别属于节`.bss`和`.data`）
   * 节`.bss`和`.data`的LMA、VMA值（理解LMA和VMA非常重要，可以参考[这里](https://github.com/cisen/blog/issues/887)和[这里](https://blog.csdn.net/eydwyz/article/details/124179377)）
-* ELF会被加载（烧录）到ROM里面，但运行时却在RAM里面。（例如链接脚本里面就把`.bss`和`.data`分配到RAM中，因此相关变量的地址是指向RAM的，而此时RAM里面的内容尚未被初始化，直接读取的话会读到脏数据）
+* ELF会被加载（烧录）到ROM里面，但运行时却在RAM里面。（例如链接脚本里面就把`.bss`和`.data`分配到RAM中，**因此相关变量的地址是指向RAM的**，而此时RAM里面的内容尚未被初始化，直接读取的话会读到脏数据）
 * 因为第2条的原因，需要在运行前**将ROM里面的相关数据复制到RAM中**
 
 上述的核心思想是，**编译和链接器为了保持程序能够正常执行，对程序和运行环境作出了一些约定，这些约定被记录在ELF文件中。加载器或者OS必须保证程序运行时这些约定都得以满足**。而对于本教程，Qemu负责将ELF加载到ROM，`lib.rs`中的代码负责初始化RAM并将ROM内的部分数据加载到RAM。
@@ -694,6 +694,42 @@ fn main2() -> ! {
 ```
 
 
+
+最后编译并检查一下结果是否符合预期
+
+```powershell
+cargo build --bin app
+rust-readobj .\target\thumbv7m-none-eabi\debug\app --program-headers --elf-output-style=GNU
+```
+
+输出如下：
+
+```powershell
+Elf file type is EXEC (Executable file)
+Entry point 0x51
+There are 6 program headers, starting at offset 52
+
+Program Headers:
+  Type           Offset   VirtAddr   PhysAddr   FileSiz MemSiz  Flg Align
+  LOAD           0x010000 0x00000000 0x00000000 0x00008 0x00008 R   0x10000
+  LOAD           0x010008 0x00000008 0x00000008 0x0038c 0x0038c R E 0x10000
+  LOAD           0x0103a0 0x000003a0 0x000003a0 0x00094 0x00094 R   0x10000
+  LOAD           0x020000 0x20000000 0x20000000 0x00000 0x00001 RW  0x10000
+  LOAD           0x020002 0x20000002 0x00000434 0x00002 0x00002 RW  0x10000
+  GNU_STACK      0x000000 0x00000000 0x00000000 0x00000 0x00000 RW  0x0
+
+ Section to Segment mapping:
+  Segment Sections...
+   00     .vector_table
+   01     .text
+   02     .rodata
+   03     .bss
+   04     .data
+   05
+   None   .debug_abbrev .debug_info .debug_aranges .debug_ranges .debug_str .debug_pubnames .debug_pubtypes .ARM.attributes .debug_frame .debug_line .comment .symtab .shstrtab .strtab
+```
+
+可以看到`.data`的LMA和VMA是不一样，这是因为我们在`link.x`中通过`AT`命令对`.data`的LMA进行了调整
 
 
 
