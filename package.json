@@ -4,7 +4,6 @@
   "description": "my blog",
   "main": "blog.js",
   "dependencies": {
-    "highlight.js": "^9.12.0",
     "markdown-it": "^8.3.1",
     "markdown-it-highlightjs": "^3.0.0",
     "markdown-it-mathjax": "^2.0.0",

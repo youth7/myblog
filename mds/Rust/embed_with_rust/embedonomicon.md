@@ -407,7 +407,7 @@ $3 = (*mut i32) 0x2000fffc
 
 # 3 `main`接口
 
-本章节主要介绍了如何将上一章节的成果从binary package转化为lib package，以便其他开发者可以使用它来开发自己的应用程序。这样相当于建立了一个抽象层，屏蔽了裸机相关的内容。开发者只需编写自己的`main`程序即可，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface](https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface)
+本章节主要介绍了如何将上一章节的成果从binary package转化为lib package，以便其他开发者可以使用它来开发自己的应用程序。这样相当于建立了一个抽象层，屏蔽了裸机相关的内容，开发者只需编写自己的`main`程序即可。本章难点在于理解为何需要初始化内存，以及如何初始化内存，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface](https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface)
 
 为了达到这个目标，我们需要将之前的项目改为lib package（名为rt，即runtime的意思），然后再新建一个binary package（名为app），然后在`app`中引用`rt`。
 
@@ -466,9 +466,7 @@ $3 = (*mut i32) 0x2000fffc
   ```
   
 
-注意：当`build.rs`被保存后会自动被cargo编译执行，最终生成相关文件，这些文件会在编译`app`时被使用，千万不能删除它们，否则后续编译`app`时会找不到链接文件而报错
-
-
+ 注：当在`rt`下修改`build.rs`时会触发自动编译，此时`OUT_DIR`指向`rt/target`下的子目录；而编译`app`时`OUT_DIR`则指向`app/target`下的子目录，这意味着`link.x`会被复制到项目`app`中。
 
 
 
@@ -535,7 +533,167 @@ Disassembly of section .text:
 
 
 
-注：其实`app`的`.cargo/config`里面的`rustflags`配置项包含了`link.x`，说明`app`对`rt`还是有些显式依赖的，不知道后续有无办法能够移除这个配置项，使得app无需知道rt中的任何内容。
+注：其实`app`的`.cargo/config`里面的`rustflags`配置项声明了需要了`link.x`，说明`app`对`rt`还是有些显式依赖的，不知道后续有无办法能够移除这个配置项，使得`app`无需知道`rt`中的任何内容。
+
+
+
+## 将`rt`改造为类型安全
+
+用户虽然可以编写自己的`main`函数，但如果`main`不符合`rt`的要求，例如用户不小心把`main`编写为一个非发散的函数，此时编译不会报错但运行时会有不可预知的错误。
+
+>  个人认为虽然`rt`中声明了`main`的类型是发散函数，但给`rt`提供`main`是链接器行为而不是编译器行为，链接器不会去管语言级别的一些细节，因此不会有链接错误。而编译时rt`和`app`之间没有代码层面的依赖，因此也不会察觉类型不匹配的问题。
+
+可以在`rt`的`lib.rs`中定义并暴露一个宏给`app`调用，通过宏来做类型检查以消除上述隐患。
+
+```rust
+#[macro_export]
+macro_rules! entry {
+    ($path:path) => {
+        #[export_name = "main"]//__main导出为main，则rt中最终链接的是当前文件内的main函数，而不是用户的main函数
+        pub unsafe fn __main() -> ! {
+            // $path就是用户传入的函数，对它进行类型检验后调用，此时用户写的函数的名称可以自定义了，不一定就是要用main
+            let f: fn() -> ! = $path;
+
+            f()
+        }
+    }
+}
+```
+
+然后修改`app`中的`main.rs`
+
+```rust
+#![no_std]
+#![no_main]
+
+use rt::entry;
+//使用rt中暴露出来的宏来调用用户编写的函数，此时用户编写的函数可以用其它名称
+//其实这样做增加了一些复杂性，之前的方法用户只需要编写一个main函数就可以了，其它什么不用管
+//而现在则需要了解entry宏
+entry!(main2);
+
+fn main2() -> ! {
+    let _x = 42;
+
+    loop {}
+}
+```
+
+
+
+## 在`main`运行之前初始化内存（难点）
+
+`rt`现在已经比较完整了，但是功能上还是有一些缺失，比如用户不能在自己的代码中使用静态变量和字符串，因为编译器会将这些内容生成到`.bss`、`.data`、`.rodata`节中，但我们的链接脚本中抛弃了这些节。为此我们需要修改一下链接脚本：
+
+```link
+  /DISCARD/ :
+  {
+    *(.ARM.exidx .ARM.exidx.*);
+  }
+
+  /* 新增三个用于保存数据的section */
+  .rodata :
+  {
+    *(.rodata .rodata.*);
+  } > FLASH
+
+  .bss :
+  {
+    *(.bss .bss.*);
+  } > RAM
+
+  .data :
+  {
+    *(.data .data.*);
+  } > RAM
+```
+
+这样就能在代码中使用这些变量了
+
+```rust
+#![no_std]
+#![no_main]
+
+use rt::entry;
+//使用rt中暴露出来的宏来调用用户编写的函数，此时用户编写的函数可以用其它名称，例如这里就用了main2
+//其实这样做增加了一些复杂性，之前的方法用户只需要编写一个main函数就可以了，其它什么不用管
+//而现在则需要了解entry宏
+entry!(main2);
+static RODATA: &[u8] = b"Hello, world!";
+static mut BSS: u8 = 0;
+static mut DATA: u16 = 1;
+fn main2() -> ! {
+    let _x = RODATA;
+    let _y = unsafe { &BSS };
+    let _z = unsafe { &DATA };
+
+    loop {}
+}
+```
+
+如果在真机上调试这段代码，你会发现`BSS`和`DATA`的值并非预期中的0和1，这是因为真机启动后内存中的值是随机导致的。但在Qemu上你无法重现这个问题，因为Qemu已经帮你初始化了。
+
+关于真机内存中的值是随机这个问题需要这样认识：
+
+* 编译和链接时会确定一些信息并将它们记录到ELF中，这些信息包括：
+  * 变量`BSS`和`DATA`的值（它们分别属于节`.bss`和`.data`）
+  * 节`.bss`和`.data`的LMA、VMA值（理解LMA和VMA非常重要，可以参考[这里](https://github.com/cisen/blog/issues/887)和[这里](https://blog.csdn.net/eydwyz/article/details/124179377)）
+* ELF会被加载（烧录）到ROM里面，但运行时却在RAM里面。（例如链接脚本里面就把`.bss`和`.data`分配到RAM中，因此相关变量的地址是指向RAM的，而此时RAM里面的内容尚未被初始化，直接读取的话会读到脏数据）
+* 因为第2条的原因，需要在运行前**将ROM里面的相关数据复制到RAM中**
+
+上述的核心思想是，**编译和链接器为了保持程序能够正常执行，对程序和运行环境作出了一些约定，这些约定被记录在ELF文件中。加载器或者OS必须保证程序运行时这些约定都得以满足**。而对于本教程，Qemu负责将ELF加载到ROM，`lib.rs`中的代码负责初始化RAM并将ROM内的部分数据加载到RAM。
+
+（以上论述仅针对裸机编程，对于现代常用的通用操作系统来说，因为OS已经帮你将虚拟内存设置好了，程序面向的是一个理想的环境：VMA和LMA相等，因此无需关注上述的一些细节了。）
+
+为此我们在使用内存先需要先初始化，首先修改`link.x`，这相当于将一些约定信息写入到ELF中
+
+```link
+  /* 新增三个用于保存数据的section */
+  .rodata :
+  {
+    *(.rodata .rodata.*);
+  } > FLASH
+
+  .bss :
+  {
+    _sbss = .; /* 将.bss的起始地址保存到_sbss中 */
+    *(.bss .bss.*);
+    _ebss = .;/* 将.bss的结束地址保存到_ebss中 */
+  } > RAM
+
+  .data : AT(ADDR(.rodata) + SIZEOF(.rodata))  /*指定.data的LMA，紧贴着.rodata*/
+  {
+    _sdata = .;/* 将.data的起始地址保存到_sdata中 */
+    *(.data .data.*);
+    _edata = .;/* 将.data的结束地址保存到_edata中 */
+  } > RAM
+
+  _sidata = LOADADDR(.data);/*将.data的LMA与某个符号关联起来*/
+```
+
+然后修改`lib.rs`，增加对RAM进行初始化的代码
+
+```rust
+    // 为何这里需要extern块修饰呢？
+    extern "C" {
+        static mut _sbss: u8;
+        static mut _ebss: u8;
+
+        static mut _sdata: u8;
+        static mut _edata: u8;
+        static _sidata: u8;
+    }
+
+    //初始化.bss只需要将对应区域全部置为0即可
+    let count = &_ebss as *const u8 as usize - &_sbss as *const u8 as usize;
+    ptr::write_bytes(&mut _sbss as *mut u8, 0, count);
+
+    //初始化.data则需要从ROM复制
+    let count = &_edata as *const u8 as usize - &_sdata as *const u8 as usize;
+    ptr::copy_nonoverlapping(&_sidata as *const u8, &mut _sdata as *mut u8, count);
+```
+
+
 
 
 
