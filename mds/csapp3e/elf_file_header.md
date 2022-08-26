@@ -14,7 +14,7 @@ ELF是Executable and Linkable Format的缩写，从名称上可以看出它同�
 
 > 在通用的ELF[规范](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)中，ELF文件类型多达9种，但在Linux的[man page](https://man7.org/linux/man-pages/man5/elf.5.html)中发现，Linux似乎只实现了其中4种
 
-* **可重定位文件**（Relocatable File）  ：如果源码**仅仅进行编译而不链接**，则生成这种文件，稍后可以用来链接生成可执行文件或者共享目标文件（例如Linux下的.o文件就是可重定位文件）。
+* **可重定位文件**（Relocatable File）  ：如果源码**仅仅进行编译而不链接**，则生成这种文件（例如Linux下的.o文件），它经过链接后生成执行文件或者共享目标文件。简单来说，可重定位文件就是缺乏了部分符号信息的文件，如果补充了这些信息（通过链接）则文件就可以执行了。
 
 * **可执行文件**（Executable File）：可以复制到内存中直接执行的文件（例如Linux下的`/bin/bash`）
 
@@ -75,9 +75,9 @@ typedef struct{
 * e_phoff：段表（program header table）在ELF文件中的偏移量
 * e_shstrndx: “节名字符串表”在节表中的索引。
 
-记录了程序链接和加载运行时的重要信息，它们的关系如下，
+ELF header记录了程序链接和加载运行时的重要信息，它们的关系如下：
 
-简单来说ELF header索引了section header table和program header table，而后者分别从**链接和运行**的角度对ELF文件中的其它内容进行了索引，所以ELF header是一级索引，后者是二级索引。
+ELF header索引了section header table和program header table，而后者分别从**链接和运行**的角度对ELF文件中的其它内容进行了索引，所以ELF header是一级索引，后者是二级索引。
 
 ![elf_architecture](/imgs/elf_architecture.jpg)
 
