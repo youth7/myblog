@@ -5,7 +5,7 @@
 [《The embedonomicon》](https://docs.rust-embedded.org/embedonomicon/preface.html)包含了以下内容：
 
 * 带领你从头开始构建`#![no_std]`应用程序（裸机编程）
-* 开发基于特定架构的Cortex-M微控制器的应用程序，并不断迭代这个开发过程
+* 开发基于特定架构的Cortex-M微控制器的应用程序，并不断迭代这个过程
 
 
 
@@ -16,8 +16,6 @@
 * 如何构建一个`#![no_std]`程序（裸机编程，不依赖OS）。
 * 如何控制Rust程序的内存布局（在链接阶段确定），这需要接触链接器、链接脚本和一些跟ABI相关的Rust feature
 * 如何实现可以被静态覆盖（statically overridden）的函数，静态覆盖意味着没有运行时消耗
-
-
 
 
 
@@ -41,7 +39,8 @@
 
 ## 和原教程的一些差异
 
-  * Rust Edition原书采用2018，本文采用2021。按照官方的说法，Rust Edition和Rust的版本应该是独立的，基于任何一个Rust Edition的代码应该都可以在最新版本的Rust编译器上编译。（All Rust code, regardless of edition, is ultimately compiled to the same internal representation within the compiler.）
+  * 重写了第五章，因为`!asm`和`!global_asm`已经进入stable，原文那种方式实在太繁琐。
+  * Rust Edition原书采用2018，本文采用2021。按照官方的说法，Rust Edition和Rust的版本应该是独立的，基于任何一个Rust Edition的代码应该都可以在最新版本的Rust编译器上编译。（*All Rust code, regardless of edition, is ultimately compiled to the same internal representation within the compiler.*）
   * 原文中是通过cargo子命令的方式去调用cargo-binutils，例如使用`cargo size`而不是`rust-size`。个人觉得这样虽然简洁但是不够直观，因此我将使用直接调用的方式调用cargo-binutils
   * 所有命令都是在powershell下运行的
 
@@ -912,7 +911,7 @@ fn main2() -> ! {
 
 ```powershell
 rustup default nightly # 切换为nightly
-rustup target add thumbv7m-none-eabi #在nightly下需要先重新安装target
+rustup target add thumbv7m-none-eabi #在nightly下需要先重新安装target和其它相关工具
 cargo  build --bin app# 编译项目
 ```
 
@@ -944,7 +943,25 @@ Breakpoint 1, rt::DefaultExceptionHandler () at src/lib.rs:103
 
 
 
-剩下还有一部分内容是检查生成的vector table的，这些内容不是特别重要暂时先略过，后续补充完整
+安全起见检查vector table是否符合我们的预期，通过以下命令编译并检查
+
+````powershell
+cargo build --bin app --release # 使用release模式编译
+.\target\thumbv7m-none-eabi\release\app -s -j .vector_table #查看.vector_table内容 
+````
+
+ 输出如下：
+
+```powershell
+.\target\thumbv7m-none-eabi\release\app:        file format elf32-littlearm
+Contents of section .vector_table:
+ 0000 00000120 45000000 83000000 83000000  ... E...........
+ 0010 83000000 83000000 83000000 00000000  ................
+ 0020 00000000 00000000 00000000 83000000  ................
+ 0030 00000000 00000000 83000000 83000000  ................
+```
+
+可见.vector_table中有16项，对比一下各项的值可知它确实和`lib.rs`中的`EXCEPTIONS`数组是一致的（0x83000000就是默认的异常函数的值）。此外需要留意第4项，它是异常处理函数`HardFault()`的地址，下一节我们会在`app`中覆盖这个函数，覆盖后它的地址就不再是0x83000000。
 
 
 
@@ -985,11 +1002,24 @@ Breakpoint 1, app::HardFault () at src/main.rs:19
 20      }
 ```
 
+再像上一小节那样编译并检查.vector_table
+
+```powershell
+.\target\thumbv7m-none-eabi\release\app:        file format elf32-littlearm
+Contents of section .vector_table:
+ 0000 00000120 47000000 85000000 41000000  ... G.......A...
+ 0010 85000000 85000000 85000000 00000000  ................
+ 0020 00000000 00000000 00000000 85000000  ................
+ 0030 00000000 00000000 85000000 85000000  ................
+```
+
+此时`DefaultExceptionHandler()`的地址变成了0x85000000，但是第4项`HardFault()`的值和`DefaultExceptionHandler()`不一样，这是因为用户在`app`中定义了自己的异常处理函数。
 
 
 
 
-# 使用旧式方法写汇编
+
+# 使用传统方法写汇编
 
 # 使用符号进行日志输出
 
