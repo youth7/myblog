@@ -424,7 +424,7 @@ Symbol table '.symtab' contains 5 entries:
 
 
 
-## 测试
+## 测试一下
 
 用以下命令启动一个Qemu模拟器，打开一个gdb服务器并监听端口3333
 
@@ -1019,7 +1019,146 @@ Contents of section .vector_table:
 
 
 
-# 使用传统方法写汇编
+# 5 使用新方法写汇编
+
+这一章主要是在代码中嵌入汇编来修改寄存器的值，从而实现为`HardFault()`传递参数。原文编写时候`asm!`和`global_asm!`尚未稳定，因此是使用旧方式嵌入汇编。这种方式非常繁琐，因此我将它改为用`asm!`来实现。完整代码见[这里](https://github.com/youth7/the-embedonomicon-note/tree/05-assembly-on-stable)
+
+在上一章中，我们将`HardFault()`放置到vector table的特定位置，当对应的异常发生时候`HardFault()`就会被调用。而本章不再将`HardFault()`直接放置到vector table，而是创建一个辅助函数`HardFaultTrampoline()`并将它放置到vector table，然后通过它来调用`HardFault()`。而`HardFaultTrampoline()`在调用`HardFault()`前会修改特定寄存器的值，从而实现为`HardFault()`传参。
+
+## 修改`rt`
+
+首先修改`lib.rs`如下：
+
+```rust
+extern "C" {
+    fn NMI();
+    // fn HardFault();删除对HardFault的声明，因为不需要在rust代码中调用它
+    fn MemManage();
+    fn BusFault();
+    fn UsageFault();
+    fn SVCall();
+    fn PendSV();
+    fn SysTick();
+}
+
+#[link_section = ".vector_table.exceptions"]// 将异常处理函数保存到节.vector_table.exceptions中
+#[no_mangle]
+pub static EXCEPTIONS: [Vector; 14] = [//定义vector table中剩余的14项
+    Vector { handler: NMI },
+    Vector { handler: HardFaultTrampoline },// 改为使用辅助函数，通过它去调用HardFault
+    Vector { handler: MemManage },
+    Vector { handler: BusFault },
+    Vector { handler: UsageFault},
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { handler: SVCall },
+    Vector { reserved: 0 },
+    Vector { reserved: 0 },
+    Vector { handler: PendSV },
+    Vector { handler: SysTick },
+];
+
+#[allow(non_snake_case)]
+#[no_mangle]
+pub fn DefaultExceptionHandler(_ef: *const u32) -> ! {//因为HardFaultTrampoline会传递参数，因此函数签名也要同步修改
+    loop {}
+}
+```
+
+
+
+将`HardFaultTrampoline()`放置到vertor table，取代原来的`HardFault()`。它的功能是读取当前栈指针的值，然后将它作为参数传递给`HardFault()`，这样`HardFault()`就可以读取异常发生时候栈里面的内容了。为何不直接在`HardFault()`中读取栈指针呢？因为`HardFault()`是用Rust写的，无法直接访问寄存器的值。
+
+然后在`lib.rs`中使用汇编实现`HardFaultTrampoline()`
+
+```rust
+#[no_mangle]
+extern "C" fn HardFaultTrampoline() {
+    unsafe{
+        asm!(
+          "mrs r0, MSP",
+          "b HardFault"
+        )
+    }
+}
+```
+
+
+
+## 修改`app`
+
+因为`HardFaultTrampoline()`会给`HardFault()`传参，所以需要修改`main.rs`中`HardFault()`的签名
+
+```rust
+#[no_mangle]
+#[allow(non_snake_case)]
+pub fn HardFault(_ef: *const u32) -> ! {//因为HardFaultTrampoline会传递参数，因此函数签名也要同步修改
+    loop {}
+}
+```
+
+## 测试一下
+
+然后用以下命令编译并检查汇编代码
+
+ ```powershell
+  cargo build --bin app --release #编译
+  rust-objdump -d --print-imm-hex --no-show-raw-insn .\target\thumbv7m-none-eabi\release\app #显示汇编
+ ```
+
+ 会有以下输出
+
+```powershell
+.\target\thumbv7m-none-eabi\release\app:        file format elf32-littlearm
+
+Disassembly of section .text:
+
+00000040 <HardFault>:
+      40:       b       0x40 <HardFault>        @ imm = #-0x4
+
+00000042 <main>:
+      42:       trap
+      44:       trap
+
+00000046 <Reset>:
+      46:       push    {r7, lr}
+      48:       mov     r7, sp
+      4a:       bl      0x42 <main>             @ imm = #-0xc
+      4e:       trap
+
+00000050 <UsageFault>:
+      50:       b       0x50 <UsageFault>       @ imm = #-0x4
+
+00000052 <HardFaultTrampoline>:
+      52:       push    {r7, lr}# 比我们的汇编多了两行，可能是因为函数调用导致生成了保存寄存器的代码
+      54:       mov     r7, sp
+      56:       mrs     r0, msp
+      5a:       b.w     0x40 <HardFault>        @ imm = #-0x1e
+      5e:       pop     {r7, pc}
+```
+
+可知`HardFaultTrampoline()`的地址是0x00000052，再检查一下vector table的内容
+
+```powershell
+rust-objdump -s -j .vector_table  .\target\thumbv7m-none-eabi\release\app
+```
+
+输出如下：
+
+```powershell
+.\target\thumbv7m-none-eabi\release\app:        file format elf32-littlearm
+Contents of section .vector_table:
+ 0000 00000120 47000000 51000000 53000000  ... G...Q...S...
+ 0010 51000000 51000000 51000000 00000000  Q...Q...Q.......
+ 0020 00000000 00000000 00000000 51000000  ............Q...
+ 0030 00000000 00000000 51000000 51000000  ........Q...Q...
+```
+
+留意第4项的值为0x53000000（Thumb mode），此时证实`HardFaultTrampoline()`确实已经生效。
+
+
 
 # 使用符号进行日志输出
 
