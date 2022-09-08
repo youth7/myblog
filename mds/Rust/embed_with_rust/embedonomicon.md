@@ -189,7 +189,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 vector_table是一个指针数组，里面每个元素（vector）都指向了某个内存地址（大部分是异常处理函数的起始地址），关于它的具体结构可以看[这里](https://documentation-service.arm.com/static/5ea823e69931941038df1b02?token=)。对本教程来说最重要的是前2个指针：
 
-* 第1个：（`Initial SP value`）栈顶指针，用于初始化栈
+* 第1个：（`ISP：Initial SP value`）栈顶指针，用于初始化栈
 * 第2个：（`Reset`）指向了`reset handler`，它是一个函数，会在系统被重置或者加电时运行（同时也是程序栈帧里面的第一帧）。
 
 所以我们需要做的事情就是：
@@ -302,7 +302,7 @@ SECTIONS
 
 * ELF中undefined symbol的相关知识，可以参考[这里](https://docs.oracle.com/cd/E19120-01/open.solaris/819-0690/chapter2-9/index.html)。
 
-* 文档说`EXTERN`与`-u`等价，`-u`中有这么一句：If this option is being used to force additional modules to be pulled into the link，这可能就是文章中使用`EXTERN的目的`
+* 文档说`EXTERN`与`-u`等价，`-u`中有这么一句：*If this option is being used to force additional modules to be pulled into the link*，这可能就是文章中使用`EXTERN的目的`
 
 
 
@@ -1160,7 +1160,71 @@ Contents of section .vector_table:
 
 
 
-# 使用符号进行日志输出
+# 利用符号进行日志输出
+
+在嵌入式系统中，常见的日志输入/输出方式有以下几种：
+
+* 串口：将日志信息写到串口，串口的接收端连接着显示设备
+* 内存：将日志信息写到RAM中，然后再从RAM中读取
+* 文件：将日志信息写到文件，这要求设备必须有sd卡或者片外flash（出现文件概念的话意味着需要OS支持？）
+* 嵌入式设备自带的显示模块、网络网口等
+
+本章节主要讨论第2种方式，不过略有区别：不是直接输出日志内容（字符串），而是输出日志内容的地址，然后再根据地址去ELF文件中查找日志的具体内容。这样做的原因是？？？？
+
+具体步骤如下：
+
+1. 在Rust代码中定义若干变量，
+2. 修改变量的符号名称，将日志内容作为符号名称，经过编译后日志的内容便存储到ELF文件中
+3. 在Rust代码中输出变量的地址，在符号表中查询这些地址便能得到日志的内容
+
+完整代码请看[这里](https://github.com/youth7/the-embedonomicon-note/tree/06-logging-with-symbols)
+
+## 修改变量导出的符号名称的例子
+
+创建一个名为foo的lib package，然后修改`lib.rs`文件如下：
+
+```rust
+#![allow(unused)]
+fn main() {
+    #[export_name = "Hello, world!"] //修改变量A的符号名称
+    #[used]// 要求编译器不要丢弃静态变量A，即使它没有被使用
+    static A: u8 = 0;
+
+    #[export_name = "你好，这是一个中文句子"]
+    #[used]// 要求编译器不要丢弃静态变量B，即使它没有被使用
+    static B: u8 = 0;//修改变量B的符号名称
+}
+
+```
+
+接着编译并检查符号表
+
+```powershell
+cargo build --lib;rust-nm .\target\debug\libfoo.rlib
+```
+
+会有以下输出：
+
+```powershell
+   Compiling foo v0.1.0 (D:\workspace\rust\app\foo)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.09s
+
+foo-71f85fa4234f96d2.3bevs2kbnkn4yeof.rcgu.o:
+00000000 a @feat.00
+00000000 R Hello, world!
+00000000 D __imp_Hello, world!
+00000000 D __imp_你好，这是一个中文句子
+00000000 R 你好，这是一个中文句子
+
+lib.rmeta:
+.\target\debug\libfoo.rlib:lib.rmeta: no symbols
+```
+
+可见我们成功将一些自定义信息当做符号名称写入了ELF中。
+
+
+
+
 
 # 全局的单例对象
 
