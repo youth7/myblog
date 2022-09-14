@@ -1169,12 +1169,12 @@ Contents of section .vector_table:
 * 文件：将日志信息写到文件，这要求设备必须有sd卡或者片外flash（出现文件概念的话意味着需要OS支持？）
 * 嵌入式设备自带的显示模块、网络网口等
 
-本章节主要讨论第2种方式，不过略有区别：不是直接输出日志内容（字符串），而是输出日志内容的地址，然后再根据地址去ELF文件中查找日志的具体内容。这样做的原因是？？？？
+本章主要是2和3的混合体，不过略有区别：不是直接输出日志内容（字符串），而是输出日志内容的地址，然后再根据地址去ELF文件中查找日志的具体内容。（这样做的原因是？？？？）
 
 具体步骤如下：
 
 1. 在Rust代码中定义若干变量，
-2. 修改变量的符号名称，将日志内容作为符号名称，经过编译后日志的内容便存储到ELF文件中
+2. 修改变量在ELF中的符号名（*symbol name*），将日志内容嵌入到符号名中，则经过编译后日志的内容便存储到ELF中
 3. 在Rust代码中输出变量的地址，在符号表中查询这些地址便能得到日志的内容
 
 完整代码请看[这里](https://github.com/youth7/the-embedonomicon-note/tree/06-logging-with-symbols)
@@ -1186,13 +1186,13 @@ Contents of section .vector_table:
 ```rust
 #![allow(unused)]
 fn main() {
-    #[export_name = "Hello, world!"] //修改变量A的符号名称
+    #[export_name = "Hello, world!"] //修改变量A的符号名
     #[used]// 要求编译器不要丢弃静态变量A，即使它没有被使用
     static A: u8 = 0;
 
     #[export_name = "你好，这是一个中文句子"]
     #[used]// 要求编译器不要丢弃静态变量B，即使它没有被使用
-    static B: u8 = 0;//修改变量B的符号名称
+    static B: u8 = 0;//修改变量B的符号名
 }
 
 ```
@@ -1220,7 +1220,131 @@ lib.rmeta:
 .\target\debug\libfoo.rlib:lib.rmeta: no symbols
 ```
 
-可见我们成功将一些自定义信息当做符号名称写入了ELF中。
+可见我们成功将一些自定义信息当做符号名写入了ELF中。
+
+## 将日志信息编码到符号名中
+
+通过以下步骤将日志信息编码
+
+1. 为每条日志创建一个对应的`static`类型变量，但变量本身不存储日志的内容，日志的内容是通过attribute编码到符号名中
+2. 将步骤1中的变量的地址输出到控制台
+
+先修改`app`中的`main.rs`
+
+```rust
+#![no_main]
+#![no_std]
+
+use core::fmt::Write;
+//使用semihosting技术进行输出，因为QEMU直接支持semihosting。而在真机环境则可能需要用到串口等技术
+use cortex_m_semihosting::{debug, hio};
+
+use rt::entry;
+
+entry!(main);
+
+fn main() -> ! {
+    let mut hstdout = hio::hstdout().unwrap();
+
+    #[export_name = "Hello, world!"]// 将日志信息编码到静态变量A的符号名中，
+    static A: u8 = 0;
+
+    // 将地址的值作为usize输出
+    let _ = writeln!(hstdout, "{:#x}", &A as *const u8 as usize);
+
+    #[export_name = "Goodbye"]
+    static B: u8 = 0;
+
+    let _ = writeln!(hstdout, "{:#x}", &B as *const u8 as usize);
+
+    debug::exit(debug::EXIT_SUCCESS);
+
+    loop {}
+}
+```
+
+然后引入相关依赖
+
+```toml
+[dependencies]
+cortex-m-semihosting = "0.5.0"
+rt = { path = "../rt" }
+```
+
+最后构建并运行
+
+```powershell
+cargo build #构建
+
+#开启semihosting运行
+qemu-system-arm `
+    -cpu cortex-m3 `
+    -machine lm3s6965evb `
+    -nographic `
+    -semihosting-config enable=on,target=native `
+    -kernel target/thumbv7m-none-eabi/debug/app
+```
+
+会有如下输出：
+
+```powershell
+Timer with period zero, disabling
+0x1c4c
+0x1c4d
+```
+
+需要留意的是，变量的地址作为`usize`输出，在32位系统上它占据4个字节，在后面的序列化传输时候会有一些微妙的问题，这里我们先记下等下再讨论。
+
+
+
+每次都要构建后再运行一大串QEMU命令是很繁琐的，可以通过修改`.cargo/config`来简化：
+
+```toml
+[target.thumbv7m-none-eabi]
+# 增加runner的相关配置项
+runner = "qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel"
+```
+
+这样构建和运行可以简化为一行命令：`cargo run --release`
+
+```powershell
+PS D:\workspace\rust\app\app> cargo run --release
+    Finished release [optimized] target(s) in 0.03s
+     Running `qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel target\thumbv7m-none-eabi\release\app`
+Timer with period zero, disabling
+0x11ec
+0x11ed
+```
+
+
+
+## 从地址中解码出日志信息
+
+在上一步中我们得到了变量的地址，现在需要在符号表中查找这些地址，从而获得这些地址对应的符号名，这可以通过以下命令完成
+
+```powershell
+rust-objdump .\target\thumbv7m-none-eabi\debug\app -t | findstr "00000001"
+```
+
+然后有以下输出：
+
+```powershell
+#从左到右各列的意义是：符号地址 | 符号的flag | 跟符号相关的节的序号 | 所属的节 | 符号长度 | 符号名
+00001c4c g     O .rodata        00000001 Hello, world!
+00001c4d g     O .rodata        00000001 Goodbye
+```
+
+用`findstr`去查找objdump的输出中含有字符串`00000001`的行，如无意外应该只会找到我们定义的两个符号，因为静态变量`A`和`B`的类型都是`u8`，只占一个字节，所以第五列（符号长度）的值必然是`00000001`。
+
+
+
+## 一些改进
+
+在之前的实现中，静态变量被编译后会存储到`.rodata`节，这意味着它们在flash中是占据空间的，即使我们在代码中并没有用到这两个静态变量的值（只用到了它们的地址）。
+
+
+
+
 
 
 
