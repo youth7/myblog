@@ -1169,7 +1169,7 @@ Contents of section .vector_table:
 * 文件：将日志信息写到文件，这要求设备必须有sd卡或者片外flash（出现文件概念的话意味着需要OS支持？）
 * 嵌入式设备自带的显示模块、网络网口等
 
-本章主要是2和3的混合体，不过略有区别：不是直接输出日志内容（字符串），而是输出日志内容的地址，然后再根据地址去ELF文件中查找日志的具体内容。（这样做的原因是？？？？）
+本章主要是2和3的混合体，不过略有区别：不是直接输出日志内容（字符串），而是输出日志内容的地址，然后再根据地址去ELF文件中查找日志的具体内容。（为何不直接输出字符串？是因为在嵌入式中不容易实现？）
 
 具体步骤如下：
 
@@ -1293,8 +1293,6 @@ Timer with period zero, disabling
 0x1c4d
 ```
 
-需要留意的是，变量的地址作为`usize`输出，在32位系统上它占据4个字节，在后面的序列化传输时候会有一些微妙的问题，这里我们先记下等下再讨论。
-
 
 
 每次都要构建后再运行一大串QEMU命令是很繁琐的，可以通过修改`.cargo/config`来简化：
@@ -1340,11 +1338,121 @@ rust-objdump .\target\thumbv7m-none-eabi\debug\app -t | findstr "00000001"
 
 ## 一些改进
 
-在之前的实现中，静态变量被编译后会存储到`.rodata`节，这意味着它们在flash中是占据空间的，即使我们在代码中并没有用到这两个静态变量的值（只用到了它们的地址）。
+在之前的实现中，静态变量被编译后会存储到`.rodata`节，这意味着把ELF烧录到flash中后这些静态依然占据空间，即使它们的值并没有被使用（只用到了它们的地址）。因此要想一个办法让程序不要加载这些节从而节省空间，这需要使用链接脚本。
+
+在`app`中创建一个新的链接脚本`log.x`并添加以下内容：
+
+```link
+SECTIONS
+{
+  .log 0 (INFO) : {
+    *(.log);
+  }
+}
+```
+
+这段代码的意义如下：
+
+* 收集所有input目标文件中的名为`.log`的节，然后在output目标文件中生成名为`.log`的节
+
+* `INFO`表示该节在运行时不需要在内存中分配空间
+
+* `0`表示该节的的加载地址（设为`0`是有它的特殊意义的，等下再说）
+
+然后修改`app`中的`main.rs`为：
+
+```rust
+#![no_main]
+#![no_std]
+
+//使用semihosting技术进行输出，因为QEMU直接支持semihosting。而在真机环境则可能需要用到串口等技术
+use cortex_m_semihosting::{debug, hio};
+
+use rt::entry;
+
+entry!(main);
+
+fn main() -> ! {
+    let mut hstdout = hio::hstdout().unwrap();
+
+    #[export_name = "Hello, world!"]// 将日志信息编码到静态变量A的符号名中，
+    #[link_section = ".log"]// 指定该静态变量输出到.log这个节
+    static A: u8 = 0;
+
+    // 将地址的值作为usize输出
+    let address = &A as *const u8 as usize as u8;
+    hstdout.write_all(&[address]).unwrap(); // 不使用core中的格式化I/O，改为使用第三方依赖的二进制I/O
+
+    #[export_name = "Goodbye"]
+    #[link_section = ".log"]// 指定该静态变量输出到.log这个节
+    static B: u8 = 0;
+
+    let address = &B as *const u8 as usize as u8;
+    hstdout.write_all(&[address]).unwrap(); // 不使用core中的格式化I/O，改为使用第三方依赖的二进制I/O
+
+    debug::exit(debug::EXIT_SUCCESS);
+
+    loop {}
+}
+```
+
+代码中最值得留意的地方有两点：
+
+* 将变量的地址类型强转为`u8`
+* 不使用core中的格式化I/O，改为使用第三方依赖的二进制I/O
+
+因为改为了二进制I/O，因此会涉及到多字节的序列化问题，为了避免这个问题干脆将地址改为单个字节。但地址本来是4字节的，这样可能会导致地址的值被截断。为了避免截断的问题我们将`.log`的加载地址设为0，则地址值小于255的地址是安全的，但这样也限制了最大的有效地址数量。
+
+最后在`.cargo/config`中指定新的链接脚本
+
+```link
+# 针对这个target使用链接脚本
+[target.thumbv7m-none-eabi]
+rustflags = [
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=-Tlog.x"
+]
+runner = "qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel"
+# 指定编译的target，修改这里之后就无需在命令行传递--target参数了
+[build]
+target = "thumbv7m-none-eabi"
+```
 
 
 
+然后运行`cargo run --release | Format-Hex`，会有以下输出（注意，原文中是用linux中的`xxd`来显示二进制输出，这里用Win11中powershell自带的的`Format-Hex`来代替）：
 
+```powershell
+    Finished dev [unoptimized + debuginfo] target(s) in 0.03s
+     Running `qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel target\thumbv7m-none-eabi\debug\app`      
+Timer with period zero, disabling
+
+
+           00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+
+00000000   00 01 
+```
+
+可见输出的地址是0x00和0x01，在.log节中查找这两个地址：
+
+```powershell
+rust-objdump .\target\thumbv7m-none-eabi\release\app -t | findstr log
+```
+
+会有以下输出
+
+```powershell
+00000000 g     O .log   00000001 Hello, world!
+00000001 g     O .log   00000001 Goodbye
+```
+
+一切都符合预期。
+
+## 抽象为一个库
+
+上面虽然已经实现了输出日志，但是这个过程还是相当繁琐用且不直观的，用户的期望的输出日志应该像使用std中的`println!`那么简单，为实现这个目的我们需要将上面的逻辑封装为一个lib crate。
+
+先用命令`cargo new --lib log`创建一个名为`lib`的lib package，然后修改`lib.rs`的内容为：
 
 
 
