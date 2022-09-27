@@ -1,6 +1,15 @@
-# 《The embedonomicon》
+# 《The embedonomicon》学习笔记
 
-# 0 前言
+# 和原教程的一些差异
+
+  * 重写了第五章，因为`!asm`和`!global_asm`已经进入stable，原文那种方式实在太繁琐。
+  * Rust Edition原书采用2018，本文采用2021。按照官方的说法，Rust Edition和Rust的版本应该是独立的，基于任何一个Rust Edition的代码应该都可以在最新版本的Rust编译器上编译。（*All Rust code, regardless of edition, is ultimately compiled to the same internal representation within the compiler.*）
+  * 原文中是通过cargo子命令的方式去调用cargo-binutils，例如使用`cargo size`而不是`rust-size`。个人觉得这样虽然简洁但是不够直观，因此我将使用直接调用的方式调用cargo-binutils
+  * 所有命令都是在powershell下运行的
+
+
+
+# 【0】前言
 
 [《The embedonomicon》](https://docs.rust-embedded.org/embedonomicon/preface.html)包含了以下内容：
 
@@ -37,20 +46,9 @@
     
     >  注意不要使用gcc-arm-11.2-2022.02-mingw-w64-i686-arm-none-eabi，这个版本依赖过期的32位python2.7，在Win10上很难准备相关的运行环境给它，相关讨论见[这里](https://community.arm.com/support-forums/f/compilers-and-libraries-forum/52585/python-2-7-dependency-for-arm-none-eabi-gdb-at-windows-hosts)
 
-## 和原教程的一些差异
-
-  * 重写了第五章，因为`!asm`和`!global_asm`已经进入stable，原文那种方式实在太繁琐。
-  * Rust Edition原书采用2018，本文采用2021。按照官方的说法，Rust Edition和Rust的版本应该是独立的，基于任何一个Rust Edition的代码应该都可以在最新版本的Rust编译器上编译。（*All Rust code, regardless of edition, is ultimately compiled to the same internal representation within the compiler.*）
-  * 原文中是通过cargo子命令的方式去调用cargo-binutils，例如使用`cargo size`而不是`rust-size`。个人觉得这样虽然简洁但是不够直观，因此我将使用直接调用的方式调用cargo-binutils
-  * 所有命令都是在powershell下运行的
-
   
 
-
-
-
-
-# 1 最小的`#![no_std]`程序
+# 【1】最小的`#![no_std]`程序
 
 这个章节主要是写一个`#![no_std]`版的hello world程序，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program](https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program)
 
@@ -169,7 +167,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 
 
-# 2 内存布局
+# 【2】内存布局
 
 这个章节主要是介绍如何通过各种工具来调整内存布局，使得生成的二进制程序能够在裸机上运行，并通过gdb来验证生成的程序是否正确，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout](https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout)
 
@@ -462,7 +460,7 @@ $3 = (*mut i32) 0x2000fffc
 
 
 
-# 3 `main`接口
+# 【3】`main`接口
 
 本章节主要介绍了如何将上一章节的成果从binary package转化为lib package，以便其他开发者可以使用它来开发自己的应用程序。这样相当于建立了一个抽象层，屏蔽了裸机相关的内容，开发者只需编写自己的`main`程序即可。本章难点在于理解为何需要初始化内存，以及如何初始化内存，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface](https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface)
 
@@ -792,7 +790,7 @@ Program Headers:
 
 
 
-# 4 异常处理
+# 【4】异常处理
 
 这一章是通过完善vector table，为`rt`增加更多的异常处理程序，同时实践*编译期重写（compile time overridable behavior）*这个功能。这节完整代码见[这里](https://github.com/youth7/the-embedonomicon-note/tree/04-Exception-handling)。
 
@@ -1019,7 +1017,7 @@ Contents of section .vector_table:
 
 
 
-# 5 使用新方法写汇编
+# 【5】使用新方法写汇编
 
 这一章主要是在代码中嵌入汇编来修改寄存器的值，从而实现为`HardFault()`传递参数。原文编写时候`asm!`和`global_asm!`尚未稳定，因此是使用旧方式嵌入汇编。这种方式非常繁琐，因此我将它改为用`asm!`来实现。完整代码见[这里](https://github.com/youth7/the-embedonomicon-note/tree/05-assembly-on-stable)
 
@@ -1160,7 +1158,7 @@ Contents of section .vector_table:
 
 
 
-# 利用符号进行日志输出
+# 【6】利用符号进行日志输出
 
 在嵌入式系统中，常见的日志输入/输出方式有以下几种：
 
@@ -1401,7 +1399,7 @@ fn main() -> ! {
 * 将变量的地址类型强转为`u8`
 * 不使用core中的格式化I/O，改为使用第三方依赖的二进制I/O
 
-因为改为了二进制I/O，因此会涉及到多字节的序列化问题，为了避免这个问题干脆将地址改为单个字节。但地址本来是4字节的，这样可能会导致地址的值被截断。为了避免截断的问题我们将`.log`的加载地址设为0，则地址值小于255的地址是安全的，但这样也限制了最大的有效地址数量。
+因为改为了二进制I/O，因此会涉及到多字节的序列化问题，为了避免这个问题干脆将地址改为单个字节。但地址本来是4字节的，这样可能会导致地址的值被截断。为了避免截断的问题我们将`.log`的加载地址设为0，同时将地址的取值范围限制为[0, 255]，这样就能保证地址能够用单个字节来精确表示，避开了被截断的问题。但弊端就是最多只能使用255条日志。
 
 最后在`.cargo/config`中指定新的链接脚本
 
@@ -1453,6 +1451,228 @@ rust-objdump .\target\thumbv7m-none-eabi\release\app -t | findstr log
 上面虽然已经实现了输出日志，但是这个过程还是相当繁琐用且不直观的，用户的期望的输出日志应该像使用std中的`println!`那么简单，为实现这个目的我们需要将上面的逻辑封装为一个lib crate。
 
 先用命令`cargo new --lib log`创建一个名为`lib`的lib package，然后修改`lib.rs`的内容为：
+
+```rust
+#![no_std]
+
+pub trait Log {
+    type Error;
+
+    fn log(&mut self, address: u8) -> Result<(), Self::Error>;
+}
+
+#[macro_export]
+macro_rules! log {
+    ($logger:expr, $string:expr) => {{//用户调用宏的时候参数包括2个：一个log Trait实例；一个日志字符串
+        #[export_name = $string]
+        #[link_section = ".log"]
+        static SYMBOL: u8 = 0;// 每条日志字符串都有一个对应的静态变量
+
+        $crate::Log::log(&mut $logger, &SYMBOL as *const u8 as usize as u8)
+        // 由用户提供具体的输出实现，但是对于本教程来说，个人认为应该由库提供实现才对，这样用户就无需关注这方面的细节
+    }};
+}
+```
+
+和之前的`rt`一样，需要提供`build.rs`用于构建时复制`log.x`
+
+```rust
+use std::{env, error::Error, fs::File, io::Write, path::PathBuf};
+
+fn main() -> Result<(), Box<dyn Error>> {
+    // Put the linker script somewhere the linker can find it
+    let out = PathBuf::from(env::var("OUT_DIR")?);
+
+    File::create(out.join("log.x"))?.write_all(include_bytes!("log.x"))?;
+
+    println!("cargo:rustc-link-search={}", out.display());
+
+    Ok(())
+}
+```
+
+最后修改`app`中的`main.rs`，让它调用`log`中的宏来输出日志
+
+```rust
+#![no_main]
+#![no_std]
+
+use cortex_m_semihosting::{
+    debug,
+    hio::{self, HostStream}//0.5.0之后改为使用HostStream结构体，原文中是使用HStdout
+};
+
+use log::{log, Log};
+use rt::entry;
+
+struct Logger {
+    hstdout: HostStream,
+}
+
+impl Log for Logger {
+    type Error = ();
+
+    fn log(&mut self, address: u8) -> Result<(), ()> {
+        self.hstdout.write_all(&[address])
+    }
+}
+
+entry!(main);
+
+fn main() -> ! {
+    let hstdout = hio::hstdout().unwrap();
+    let mut logger = Logger { hstdout };
+
+    let _ = log!(logger, "Hello, world!");
+
+    let _ = log!(logger, "Goodbye");
+
+    debug::exit(debug::EXIT_SUCCESS);
+
+    loop {}
+}
+
+```
+
+此时打印日志所用的宏已经非常接近`println!`，比之前那种晦涩的方法好多了！同时不要忘记修改 `Cargo.toml` ，引入`log`作为依赖
+
+```toml
+[dependencies]
+rt = {path ="../rt"}
+log = {path ="../log"}
+cortex-m-semihosting  = "0.5.0"
+```
+
+最后运行一下`cargo run --release | Format-Hex`会有以下输出：
+
+```powershell
+    Finished release [optimized] target(s) in 0.71s
+     Running `qemu-system-arm -cpu cortex-m3 -machine lm3s6965evb -nographic -semihosting-config enable=on,target=native -kernel target\thumbv7m-none-eabi\release\app`
+Timer with period zero, disabling
+
+
+           00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+
+00000000   00 01   
+```
+
+按照上一小节的方法用`rust-objdump`去检查ELF文件，会发现相关位置就是我们日志中输出的字符串，这里不再重复
+
+## 日志分级
+
+实现日志分级的思想比较简单，如上所述我们地址的有效范围是[0, 255]，我们在这个区间之中取一点n，让[0, n]这个地址区间放error级别的日志地址，[n, 255]放warn级别的日志地址，则实现了日志分级。此时想专门看某种类型的日志的话，只需要拿特定范围的地址值去搜索ELF文件即可。
+
+首先我们需要修改`log`中的`lib.rs`，提供分别用于输出warn和error级别日志的宏：
+
+```rust
+#![no_std]
+
+pub trait Log {
+    type Error;
+    fn log(&mut self, address: u8) -> Result<(), Self::Error>;
+}
+
+// 输出error等级的日志
+#[macro_export]
+macro_rules! error {
+    ($logger:expr, $string:expr) => {{
+        #[export_name = $string]
+        #[link_section = ".log.error"] // 放置到.log.error这个节
+        static SYMBOL: u8 = 0;
+        $crate::Log::log(&mut $logger, &SYMBOL as *const u8 as usize as u8)//最终都是调用log函数，只是放置的地方不一样
+    }};
+}
+
+// 输出warn等级的日志
+#[macro_export]
+macro_rules! warn {
+    ($logger:expr, $string:expr) => {{
+        #[export_name = $string]
+        #[link_section = ".log.warning"] // 放置到.log.warning这个节
+        static SYMBOL: u8 = 0;
+        $crate::Log::log(&mut $logger, &SYMBOL as *const u8 as usize as u8)//最终都是调用log函数，只是放置的地方不一样
+    }};
+}
+```
+
+然后调整链接脚本，让不同级别的日志按照我们上面描述的方式放置，注意`__log_warning_start__`就是我们上面说的`n`，它是不同级别日志的分界点
+
+```link
+SECTIONS
+{
+  .log 0 (INFO) : {
+    *(.log.error);              /*前面部分放置error级别日志*/
+    __log_warning_start__ = .;  /*将当前地址值与符号__log_warning_start__关联起来，意味着剩下地址存的都是警告级别的日志*/
+    *(.log.warning);            /*剩下部分放置warning级别日志*/
+  }
+}
+```
+
+最后修改`app`中的`main.rs`，使用新的宏来输出不同级别的日志
+
+```rust
+#![no_main]
+#![no_std]
+
+use cortex_m_semihosting::{
+    debug,
+    hio::{self, HostStream}//0.5.0之后改为使用HostStream结构体，原文中是使用HStdout
+};
+
+use log::{error, warn, Log};
+use rt::entry;
+
+struct Logger {
+    hstdout: HostStream,
+}
+
+impl Log for Logger {
+    type Error = ();
+    fn log(&mut self, address: u8) -> Result<(), ()> {
+        self.hstdout.write_all(&[address])
+    }
+}
+
+entry!(main);
+
+fn main() -> ! {
+    let hstdout = hio::hstdout().unwrap();
+    let mut logger = Logger { hstdout };
+    let _ = warn!(logger, "Hello, world!");
+    let _ = error!(logger, "Goodbye");
+    let _ = error!(logger, "你好呀");
+    let _ = warn!(logger, "是的师父！");
+    debug::exit(debug::EXIT_SUCCESS);
+    loop {}
+}
+```
+
+用`cargo run --release | Format-Hex`运行程序，会有以下输出：
+
+```powershell
+           00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+
+00000000   02 00 01 03 
+```
+
+虽然rust代码里交错输出warn和error日志，但是这并不会改变它们的关系：**error日志的地址永远小于warn日志**。这是由链接脚本决定的，可以从输出中观察到这个规律。同时我们检查一下生成的二进制文件
+
+```bash
+# 进入wsl然后执行以下命令：
+objdump ./target/thumbv7m-none-eabi/release/app -t | grep log
+# 然后会有以下输出
+00000002 g     O .log   00000001 Hello, world!
+00000000 g     O .log   00000001 Goodbye
+00000001 g     O .log   00000001 你好呀
+00000003 g     O .log   00000001 是的师父！
+00000002 g       .log   00000000 __log_warning_start__
+# 在wsl执行的原因是程序中用了中文字符串，在powershell下用rust-objdump去解析的话会乱码，效果不好。如果没有安装wsl的话也可以像之前那样使用命令:
+# rust-objdump .\target\thumbv7m-none-eabi\release\app -t | findstr log
+```
+
+相比之前多了符号`__log_warning_start__`，地址值属于[0, `__log_warning_start__`]的符号都代表error级别日志；地址值属于[`__log_warning_start__`, 255]的符号都代表warn级别日志。
+
+
 
 
 
