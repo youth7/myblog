@@ -150,6 +150,8 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 刚开始的时候觉得两者都是程序崩溃时调用的，它们有什么区别？[文档](https://doc.rust-lang.org/stable/book/ch09-01-unrecoverable-errors-with-panic.html)是这样解释的：
 
+>## Unwinding the Stack or Aborting in Response to a Panic
+>
 >By default, when a panic occurs, the program starts *unwinding*, which means Rust walks back up the stack and cleans up the data from each function it encounters. However, this walking back and cleanup is a lot of work. Rust, therefore, allows you to choose the alternative of immediately *aborting*, which ends the program without cleaning up. Memory that the program was using will then need to be cleaned up by the operating system. If in your project you need to make the resulting binary as small as possible, you can switch from unwinding to aborting upon a panic by adding `panic = 'abort'` to the appropriate `[profile]` sections in your *Cargo.toml* file. For example, if you want to abort on panic in release mode, add this:
 >
 >```
@@ -157,9 +159,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 >panic = 'abort'
 >```
 
-
-
-我个人的疑问是这两个设定是相互独立的吗，还是说默认的`#[panic_handler]`实现里面包含了`eh_personality`？
+可见前者是程序panic时候调用的，而运行panic处理程序时候，可以选择是unwind stack或者直接abort。我个人的疑问是这两个设定是相互独立的吗，还是说`#[panic_handler]`指向的实现里面包含了`eh_personality`？
 
 但无论如何，**在本文的运行环境下并不需要对`eh_personality`做任何修改**
 
@@ -1448,7 +1448,7 @@ rust-objdump .\target\thumbv7m-none-eabi\release\app -t | findstr log
 
 ## 抽象为一个库
 
-上面虽然已经实现了输出日志，但是这个过程还是相当繁琐用且不直观的，用户的期望的输出日志应该像使用std中的`println!`那么简单，为实现这个目的我们需要将上面的逻辑封装为一个lib crate。
+上面虽然已经实现了输出日志，但是这个过程还是相当繁琐用且不直观的，用户的期望的输出日志应该像使用`std::println!`那么简单，为实现这个目的我们需要将上面的逻辑封装为一个lib crate。
 
 先用命令`cargo new --lib log`创建一个名为`lib`的lib package，然后修改`lib.rs`的内容为：
 
@@ -1674,11 +1674,167 @@ objdump ./target/thumbv7m-none-eabi/release/app -t | grep log
 
 
 
+# 【7】全局的单例对象
+
+本章主要是对上一章基进行改进，使得`log!`的使用更加像里的`std::println!`，即使用类似`log!(日志信息)`这样的API来输出日志。这种调用方式和之前相比少了一个`logger`对象，实现这个特性的原理是，注册一个全局的`logger`对象，从而使得用户在调用`log!`时不需要再提供`logger`。完整代码请见[这里](https://github.com/youth7/the-embedonomicon-note/tree/07-global-singletons)
+
+首先要修改`log`的`lib.rs`，它对外提供这些功能：
+
+* 让用户注册全局的单例对象`logger`
+* 提供`log!`宏，该宏可以使用全局或自定义的`logger`进行日志输出
+
+具体代码如下，一些重要的细节已经注释：
+
+```rust
+#![no_std]
+
+//关于Sync、Send的语义参考：https://www.zhihu.com/question/303273488/answer/2345814358
+pub trait GlobalLog: Sync {
+    /**
+    声明一个trait，全局的单例日志对象必须实现它，需要注意以下几点：
+    1，log方法只需要&self，不消耗所有权，因为它用的是单例的全局共享对象。
+    2，这里并没有像下面的Log trait那样定义一个关联的错误类型，这是为了简化细节。
+       将错误处理委托给用户，而不是由库指定错误处理规则并强制用户实现。
+    **/
+    fn log(&self, address: u8);
+}
+
+pub trait Log {
+    type Error;
+    fn log(&mut self, address: u8) -> Result<(), Self::Error>;
+}
+
+#[macro_export]
+macro_rules! log {
+    //该宏接受两种传参，第一种传参不需要提供日志对象，第二种传参需要提供日志对象
+
+    //第一种传参方式，此时会使用一个名为"LOGGER"的全局对象进行日志输出，它是一个定义在某处的全局对象
+    ($string:expr) => {
+        unsafe {
+            extern "Rust" {
+                //关于$crate请见：
+                //https://zjp-cn.github.io/tlborm/decl-macros/minutiae/hygiene.html?highlight=%24crate#unhygientic
+                //我们并不知道LOGGER的具体类型，但要求它必须实现了这里必须实现了GlobalLog，所以必须用trait object
+                static LOGGER: &'static dyn $crate::GlobalLog;
+            }
+
+            #[export_name = $string]
+            #[link_section = ".log"]
+            static SYMBOL: u8 = 0;
+
+            $crate::GlobalLog::log(LOGGER, &SYMBOL as *const u8 as usize as u8)
+        }
+    };
+
+    //第二种传参方式，需要用户自己提供日志对象进行输出，这是上一章的方式
+    ($logger:expr, $string:expr) => {{
+        #[export_name = $string]
+        #[link_section = ".log"]
+        static SYMBOL: u8 = 0;
+
+        $crate::Log::log(&mut $logger, &SYMBOL as *const u8 as usize as u8)
+    }};
+}
+
+//提供一个宏，让用户注册单例的全局日志对象，并将符号名称定为"LOGGER"，这样正好和上面对应
+#[macro_export]
+macro_rules! global_logger {
+    ($logger:expr) => {
+        #[no_mangle]
+        pub static LOGGER: &dyn $crate::GlobalLog = &$logger;
+    };
+}
+```
+
+
+
+然后我们修改`app/main.rs`来使用上述的新特性：
+
+```rust
+#![no_main]
+#![no_std]
+
+use cortex_m::interrupt;
+use cortex_m_semihosting::{
+    debug,
+    hio::{self, HostStream}//0.5.0之后改为使用HostStream结构体，原文中是使用HStdout
+};
+
+use log::{global_logger, log, GlobalLog};
+use rt::entry;
+
+struct Logger;
+
+global_logger!(Logger);//将Logger注册为全局logger，这样在使用log!宏的时候就不再需要提供logger对象
+
+entry!(main);
+
+fn main() -> ! {
+    log!("Hello, world!");//更为简洁的日志API，不需要主动提供logger对象
+    log!("Goodbye");
+    debug::exit(debug::EXIT_SUCCESS);
+    loop {}
+}
+
+//全局logger的实现
+impl GlobalLog for Logger {
+    fn log(&self, address: u8) {
+        //interrupt::free作用是在一个无中断的上下文环境中执行函数，这是访问static mut类型变量的要求
+        //因为HSTDOUT是静态变量，只有做到这样才能保证内存安全。
+        //这种机制就是所谓的临界区（critical section）
+        interrupt::free(|_| unsafe {
+            static mut HSTDOUT: Option<HostStream> = None;
+
+            // 延迟初始化
+            if HSTDOUT.is_none() {
+                HSTDOUT = Some(hio::hstdout()?);
+            }
+            let hstdout = HSTDOUT.as_mut().unwrap();
+            hstdout.write_all(&[address])
+        })
+        .ok(); // 调用ok()意味着忽略错误并返回Option
+    }
+}
+```
+
+不要忘记在`Cargo.toml`中引入新的依赖
+
+```toml
+[dependencies]
+rt = {path ="../rt"}
+log = {path ="../log"}
+cortex-m-semihosting  = "0.5.0"
+cortex-m = "0.7.6"
+```
+
+
+
+用`cargo run --release | Format-Hex`运行程序，会有以下输出：
+
+```powershell
+           00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F
+
+00000000   00 01 
+```
+
+使用全局单例对象来简化`log!`宏的目标已经达成。
+
+因为使用了trait object，因此可能会因为引入vtable（实现动态分派）而造成性能损耗。但LLVM似乎相当智能地做了优化，对比下面的命令和输出可以发现，在release模式下LOGGER都找不到了
+
+```powershell
+cargo objdump --bin app --release -- -t| findstr LOGGER
+    Finished release [optimized] target(s) in 0.03s #release模式下已经找不到符号LOGGER
+
+cargo objdump --bin app -- -t| findstr LOGGER
+    Finished dev [unoptimized + debuginfo] target(s) in 0.03s
+00000730 g     O .rodata        00000008 LOGGER
+```
 
 
 
 
-# 全局的单例对象
 
-# DMA
+
+
+# 【8】DMA
 
