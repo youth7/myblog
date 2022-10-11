@@ -38,7 +38,7 @@
     
 * QEMU模拟器
   
-    采用7.0.0版本（[qemu-w64-setup-20220419.exe](https://qemu.weilnetz.de/w64/qemu-w64-setup-20220419.exe)）
+    采用7.0.0版本（[qemu-w64-setup-20220419.exe](https://qemu.weilnetz.de/w64/2022/qemu-w64-setup-20220419.exe)）
     
 * gdb工具
 
