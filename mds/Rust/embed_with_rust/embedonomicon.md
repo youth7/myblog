@@ -695,16 +695,50 @@ fn main2() -> ! {
 * 编译和链接时会确定一些信息并将它们记录到ELF中，这些信息包括：
   * 变量`BSS`和`DATA`的值（它们分别属于节`.bss`和`.data`）
   * 节`.bss`和`.data`的LMA、VMA值（理解LMA和VMA非常重要，可以参考[这里](https://github.com/cisen/blog/issues/887)和[这里](https://blog.csdn.net/eydwyz/article/details/124179377)）
-* ELF会被加载（烧录）到ROM里面，但运行时却在RAM里面。（例如链接脚本里面就把`.bss`和`.data`分配到RAM中，**因此相关变量的地址是指向RAM的**，而此时RAM里面的内容尚未被初始化，直接读取的话会读到脏数据）
-* 因为第2条的原因，需要在运行前**将ROM里面的相关数据复制到RAM中**
+* ELF会被加载（烧录）到ROM里面，但运行时却在RAM里面。（例如链接脚本里面就把`.bss`和`.data`分配到RAM中，**因此相关变量的地址是指向RAM的，即编译时候就认为这些数据/代码是在RAM的地址空间内运行**，而此时RAM里面的内容尚未被初始化，直接读取的话会读到脏数据）
+* 因为第2条的原因，需要在运行前**将ROM里面的相关数据复制到RAM中，营造一个与预期一致的运行环境**
 
-上述的核心思想是，**编译和链接器为了保持程序能够正常执行，对程序和运行环境作出了一些约定，这些约定被记录在ELF文件中。加载器或者OS必须保证程序运行时这些约定都得以满足**。而对于本教程，Qemu负责将ELF加载到ROM，`lib.rs`中的代码负责初始化RAM并将ROM内的部分数据加载到RAM。
+上述的核心思想是，**编译和链接器为了保持程序能够正常执行，对程序和运行环境作出了一些约定（这里主要是指地址空间），这些约定被记录在ELF文件中。加载器或者OS必须保证程序运行时这些约定都得以满足**。而对于本教程，Qemu负责将ELF加载到ROM，`lib.rs`中的代码负责初始化RAM并（将ROM内的部分数据加载到RAM）。
 
 （以上论述仅针对裸机编程，对于现代常用的通用操作系统来说，因为OS已经帮你将虚拟内存设置好了，程序面向的是一个理想的环境：VMA和LMA相等，因此无需关注上述的一些细节了。）
 
 为此我们在使用内存先需要先初始化，首先修改`link.x`，这相当于将一些约定信息写入到ELF中
 
 ```link
+/* Memory layout of the LM3S6965 microcontroller */
+/* 1K = 1 KiBi = 1024 bytes */
+MEMORY
+{
+  FLASH : ORIGIN = 0x00000000, LENGTH = 256K
+  RAM : ORIGIN = 0x20000000, LENGTH = 64K
+}
+
+/* The entry point is the reset handler */
+ENTRY(Reset);
+
+EXTERN(RESET_VECTOR);
+
+SECTIONS
+{
+  .vector_table ORIGIN(FLASH) :
+  {
+    /* First entry: initial Stack Pointer value */
+    LONG(ORIGIN(RAM) + LENGTH(RAM));
+
+    /* Second entry: reset vector */
+    KEEP(*(.vector_table.reset_vector));
+  } > FLASH
+
+  .text :
+  {
+    *(.text .text.*);
+  } > FLASH
+
+  /DISCARD/ :
+  {
+    *(.ARM.exidx .ARM.exidx.*);
+  }
+
   /* 新增三个用于保存数据的section */
   .rodata :
   {
@@ -718,20 +752,26 @@ fn main2() -> ! {
     _ebss = .;/* 将.bss的结束地址保存到_ebss中 */
   } > RAM
 
-  .data : AT(ADDR(.rodata) + SIZEOF(.rodata))  /*指定.data的LMA，紧贴着.rodata*/
+/*
+用AT命令指定.data的LMA，让这个段紧贴着.rodata段，但这里并没有指定VMA
+这里非常重要，理解AT命令请看这里的例子：https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_chapter/ld_3.html#SEC16
+务必理解这里通过什么样的方式指定了.data的VMA和LMA（链接脚本并没有指定VMA）
+*/
+  .data : AT(ADDR(.rodata) + SIZEOF(.rodata))  
   {
-    _sdata = .;/* 将.data的起始地址保存到_sdata中 */
+    _sdata = .;/* 将.data的起始地址保存到_sdata中,注意：这里相当于保存了该节的VMA！ */
     *(.data .data.*);
     _edata = .;/* 将.data的结束地址保存到_edata中 */
   } > RAM
 
   _sidata = LOADADDR(.data);/*将.data的LMA与某个符号关联起来*/
+}
 ```
 
 然后修改`lib.rs`，增加对RAM进行初始化的代码
 
 ```rust
-    // 为何这里需要extern块修饰呢？
+    // 为何这里需要extern块修饰呢？因为这些符号都是由链接脚本直接定义的，需要直接从ELF文件中读取。
     extern "C" {
         static mut _sbss: u8;
         static mut _ebss: u8;
@@ -786,9 +826,9 @@ Program Headers:
    None   .debug_abbrev .debug_info .debug_aranges .debug_ranges .debug_str .debug_pubnames .debug_pubtypes .ARM.attributes .debug_frame .debug_line .comment .symtab .shstrtab .strtab
 ```
 
-可以看到`.data`的LMA和VMA是不一样，这是因为我们在`link.x`中通过`AT`命令对`.data`的LMA进行了调整
+> 注意上面输出中的VMA(VirtAddr)和LMA(PhysAddr)都是从程序运行的角度出发的，和它们在ELF中的具体偏移量完全没有关系，不要混淆
 
-
+可以看到`.data`的LMA和VMA是不一样。并且，`.rodata`的LMA=0x000003a0，长度是0x00094， **0x000003a0+0x00094 =0x00000434，这正好就是 `.data`的LMA**。说明我们在`link.x`中通过`AT`命令对`.data`的LMA进行了调整确实生效了。
 
 # 【4】异常处理
 
