@@ -4,7 +4,7 @@
 
   * 重写了第五章，因为`!asm`和`!global_asm`已经进入stable，原文那种方式实在太繁琐。
   * Rust Edition原书采用2018，本文采用2021。按照官方的说法，Rust Edition和Rust的版本应该是独立的，基于任何一个Rust Edition的代码应该都可以在最新版本的Rust编译器上编译。（*All Rust code, regardless of edition, is ultimately compiled to the same internal representation within the compiler.*）
-  * 原文中是通过cargo子命令的方式去调用cargo-binutils，例如使用`cargo size`而不是`rust-size`。个人觉得这样虽然简洁但是不够直观，因此我将使用直接调用的方式调用cargo-binutils
+  * 原文中是通过cargo子命令的方式去调用cargo-binutils，例如使用`cargo size`而不是`rust-size`。个人觉得这样虽然简洁但是不够直观，因此我将使用直接调用的方式调用cargo-binutils，将编译和检查二进制两个过程分离出来。
   * 所有命令都是在powershell下运行的
 
 

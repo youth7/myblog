@@ -6,5 +6,5 @@
 
 ## Rust与嵌入式
 
-[《The embedonomicon》笔记（裸机编程基本流程）](./embed_with_rust/embedonomicon.md)
+[《The embedonomicon》笔记（裸机编程的一些细节）](./embed_with_rust/embedonomicon.md)
 
