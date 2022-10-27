@@ -181,9 +181,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 ## 了解CPU对二进制文件结构的要求
 
-教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档，目前对我们来说最重要的是：
-
->  **初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**
+教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)，看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
 
 vector_table是一个指针数组，里面每个元素（vector）都指向了某个内存地址（大部分是异常处理函数的起始地址），关于它的具体结构可以看[这里](https://documentation-service.arm.com/static/5ea823e69931941038df1b02?token=)。对本教程来说最重要的是前2个指针：
 
@@ -286,7 +284,7 @@ SECTIONS
 
 定义了程序的入口为Rust代码中定义的函数`Reset`。链接器会抛弃未使用的节，如果脚本中没有这一行则链接器会认为`Reset`未被使用从而抛弃之。
 
-而`Reset`就是在系统重置时运行的第一个函数，因此指定它为入口也是合理的。
+`Reset`就是在系统重置时运行的第一个函数，因此指定它为入口也是合理的。注意`ENTRY`只是在ELF中标明了了程序的入口，要让程序真的成为机器重置时候第一个被执行的程序，还需要符合CPU的要求。具体到本文的话，就是要设置好vector_table。开发人员有必要让vector_table中的`Reset`作为`ENTRY`的参数，这样两处关于开机后的入口就一致了，否则会让人困惑
 
 ### [EXTERN](https://sourceware.org/binutils/docs/ld/Miscellaneous-Commands.html)
 
