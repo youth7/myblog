@@ -64,7 +64,7 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 * PAC（Peripheral Access Crate）：对芯片上外设接口的直接抽象，这是相当低的一个抽象层，能够控制，只有当有高层抽象无法满足时候需求时候才会使用。使用PAC需要了解硬件的特性（如果不是专门做嵌入式的，看那一套API是根本不知道代表什么外设，因此PAC其实是不怎么易用）
 
 * HAL（The Hardware Abstraction Layer）：因为PAC实在太底层了，直接用它并不方便，于是在其之上构建了HAL以便抽象芯片上的所有外设，通常会将芯片上的所有外设抽象为一个能收发数据的struct。
-* BSP：对整块board（例如micro:bit v2）的抽象，构建于HAL之上。
+* BSP（The  Board Support Package）：对整块board（例如micro:bit v2）的抽象，构建于HAL之上。
 
 
 
@@ -113,6 +113,7 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 
 use cortex_m_rt::entry;//这个和《The embedonomicon》中的entry宏原理是一样的，原理是库函数才是真正的入口，然后库函数再来加载用户函数
 use panic_halt as _;
+use microbit as _;
 
 #[entry]
 fn main() -> ! {//发散函数，《The embedonomicon》也说过
@@ -146,14 +147,12 @@ version = "0.1.0"
 authors = ["Henrik Böving <hargonix@gmail.com>"]
 edition = "2021"
 
-[dependencies.microbit-v2]
-version = "0.12.0"
-optional = true
 
 [dependencies]
 cortex-m = "0.7.3"
 cortex-m-rt = "0.7.0"
 panic-halt = "0.2.0"
+microbit-v2 = "0.12.0"
 ```
 
 最后是`Embed.toml`，它是`cargo embed`的配置文件，各项的意义参考[这里](https://github.com/probe-rs/cargo-embed/blob/master/src/config/default.toml)
@@ -241,15 +240,68 @@ cargo embed --target thumbv7em-none-eabihf
     GDB stub listening at 127.0.0.1:1337
 ```
 
-`cargo embed`现将旧数据擦除然后把新数据写入，此时被烧录进去的ELF文件是硬件上唯一运行的程序，不依赖操作系统直接控制硬件。完成后看到`cargo embed`自动开启了GDB等待连接，这正是我们在`Embed.toml`中的配置结果
+`cargo embed`完成了以下事情：
 
+* 擦除芯片上的旧数据，写入新数据（我们的代码）
+* 让芯片在reset之后挂起，不要立即执行`main`进入无限循环
+* 在PC上开启一个GDB代理，为下一步的debug做准备
 
+步骤2、3在`Embed.toml`上有所体现。  此时被烧录进去的ELF文件是硬件上唯一运行的程序，不依赖操作系统直接控制硬件。
 
 
 
 ## debug
 
+在上一步的基础上，打开一个新窗口并执行命令：`arm-none-eabi-gdb.exe  target/thumbv7em-none-eabihf/debug/led-roulette`
+
+```powershell
+arm-none-eabi-gdb.exe  target/thumbv7em-none-eabihf/debug/led-roulette
+GNU gdb (Arm GNU Toolchain 11.3.Rel1) 12.1.90.20220802-git
+...
+Reading symbols from target/thumbv7em-none-eabihf/debug/led-roulette...
+(gdb) 
+```
+
+然后连上GDB代理
+
+```powershell
+(gdb) target remote :1337
+Remote debugging using :1337	# 连上gdb代理
+0x00000100 in nrf52833_pac::{impl#280}::fmt (self=0x1c3e9442, f=0x797af19f) at src/lib.rs:163
+163     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
+(gdb)
+```
+
+设置断点并检查相关变量的值
+
+```powershell
+(gdb) break main	# 在main函数上打一个断点
+Breakpoint 1 at 0x164: file src/main.rs, line 9.
+Note: automatically using hardware breakpoints for read-only addresses.
+(gdb) c				# 继续运行直到断点
+Continuing.
+
+Breakpoint 1, led_roulette::__cortex_m_rt_main_trampoline () at src/main.rs:9
+9       #[entry]
+(gdb) break 13		# 在main.rs的13行打一个断点
+Breakpoint 2 at 0x170: file src/main.rs, line 13.
+(gdb) c				# 继续运行直到断点
+Continuing.
+
+Program received signal SIGINT, Interrupt.
+led_roulette::__cortex_m_rt_main () at src/main.rs:10
+10      fn main() -> ! {//€The embedonomicon€
+(gdb) c				# 继续运行直到断点，不知道为何出了中断后c命令没有直接运行到断点处
+Continuing.
+
+Breakpoint 2, led_roulette::__cortex_m_rt_main () at src/main.rs:13
+13          _y = x;
+(gdb) print x		# 打印main函数中_y变量的值
+$2 = 42
+(gdb)
+```
 
 
-`arm-none-eabi-gdb.exe  target/thumbv7em-none-eabihf/debug/led-roulette`
+
+## 用代码点亮芯片
 
