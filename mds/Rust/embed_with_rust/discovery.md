@@ -12,7 +12,7 @@
 
 
 
-全部代码请见[这里]()
+全部代码请见[这里](https://github.com/youth7/rust-embed-discovery)
 
 
 
@@ -70,13 +70,11 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 
 如果依然不太明白上述概念，直接去看一下相关API就马上能感受到了，书中用到的相关库如下（仅针对micro:bit v2）：
 
-| 抽象层         | 库                                    |
-| -------------- | ------------------------------------- |
-| 第1层抽象：PAC | https://crates.io/crates/nrf52833-pac |
-| 第2层抽象：HAL | https://crates.io/crates/nrf52833-hal |
-| 第3层抽象：BSP | https://crates.io/crates/microbit     |
-
-
+| 抽象层         | 库                                                           |
+| -------------- | ------------------------------------------------------------ |
+| 第1层抽象：PAC | [https://docs.rs/nrf52833-pac/0.12.2/nrf52833_pac/](https://docs.rs/nrf52833-pac/0.12.2/nrf52833_pac/) |
+| 第2层抽象：HAL | [https://docs.rs/nrf52833-hal/0.16.0/nrf52833_hal/](https://docs.rs/nrf52833-hal/0.16.0/nrf52833_hal/) |
+| 第3层抽象：BSP | [https://docs.rs/microbit-v2/0.13.0/microbit/](https://docs.rs/microbit-v2/0.13.0/microbit/) |
 
 每一款硬件都抽象一个HAL是可行的，但这样程序就很难移植，设计一个尽可能通用的HAL对绝大多数硬件进行抽象是有必要的。在rust嵌入式开发中，[`embedded-hal`](https://crates.io/crates/embedded-hal)就是对第2层的通用抽象。这就是文中说的统一图层（Unifying the layers），简单来说就是面向接口开发，使得代码可以移植和复用。
 
@@ -84,7 +82,7 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 
 # LED轮盘
 
-本章节主要是在micro:bit v2上实现一个类似LED跑马灯的效果，此过程涉及到构建、烧录、debug、迭代代码等步骤，非常直观地让读者感受到嵌入式开发的基本流程和要素。
+本章节主要是在micro:bit v2上实现一个类似LED跑马灯的效果，此过程涉及到构建、烧录、debug、迭代代码等步骤，非常直观地让读者感受到嵌入式开发的基本流程和要素。本章节全部代码见[这里](https://github.com/youth7/rust-embed-discovery/tree/main/05-led-roulette)
 
 ## 代码分析
 
@@ -149,10 +147,10 @@ edition = "2021"
 
 
 [dependencies]
-cortex-m = "0.7.3"
-cortex-m-rt = "0.7.0"
+cortex-m = "0.7.6"
+cortex-m-rt = "0.7.1"
 panic-halt = "0.2.0"
-microbit-v2 = "0.12.0"
+microbit-v2 = "0.13.0"
 ```
 
 最后是`Embed.toml`，它是`cargo embed`的配置文件，各项的意义参考[这里](https://github.com/probe-rs/cargo-embed/blob/master/src/config/default.toml)
@@ -304,4 +302,49 @@ $2 = 42
 
 
 ## 用代码点亮芯片
+
+完成上述步骤后表明前期一切准备已经就绪，可以开始编写特定的功能代码了，先来实现一个简单的任务：点亮芯片上的小灯。为了让代码简洁作者用了[microbit的bsp](https://docs.rs/microbit-v2/0.13.0/microbit/)。修改`src/main.js`如下：
+
+```rust
+#![deny(unsafe_code)]
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry;//这个和《The embedonomicon》中的entry宏原理是一样的，原理是库函数才是真正的入口，然后库函数再来加载用户函数
+use panic_halt as _;
+use microbit::board::Board;
+use microbit::hal::prelude::*;
+
+#[entry]
+fn main() -> ! {//发散函数，《The embedonomicon》也说过
+    let mut board = Board::take().unwrap();
+    // 这个api控制的是整行/列的pin的状态，而一个灯点亮的条件是对应的pin上同时有高低两种状态
+    // 例如以下代码会点亮四个角的led
+    board.display_pins.col1.set_low().unwrap();
+    board.display_pins.row1.set_high().unwrap();
+
+    board.display_pins.col5.set_low().unwrap();
+    board.display_pins.row5.set_high().unwrap();
+    // infinite loop; just so we don't leave this stack frame
+    loop {}
+}
+```
+
+此时不需要调试和开机挂起，所以修改`Emged.toml`为：
+
+```toml
+[default.general]
+chip = "nrf52833_xxAA" #芯片信息
+
+[default.reset]
+halt_afterwards = false #重置后挂起程序，这样就不会进入无线循环
+
+[default.rtt] #禁用rtt
+enabled = false
+
+[default.gdb] #开启gdb debug
+enabled = false
+```
+
+然后像上面那样使用cargo-embed将程序烧录到芯片，此时你会发现四个顶点的灯被点亮了（因为稍微修改了一下程序）。
 
