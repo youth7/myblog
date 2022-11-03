@@ -167,7 +167,6 @@ enabled = false
 
 [default.gdb] #开启gdb debug
 enabled = true
-
 ```
 
 
@@ -220,8 +219,8 @@ ELF Header:
 
 刷之前先用USB数据线将micro:bit v2和PC连接，然后执行以下命令将上一步生成的ELF文件烧录到硬件
 
-```
-cargo embed --target thumbv7em-none-eabihf
+```powershell
+cargo embed --target thumbv7em-none-eabihf # 每次更新代码后都需要用这个命令将程序烧录到芯片，下面不再重复，读者知道即可
 ```
 
 > `cargo embed`会将ELF文件按照硬件的规范刷到指定的位置，它支持 nRF5x、STM32 、 LPC800等芯片，在《The embedonomicon》中因为使用QEMU模拟器的原因，这一步通过命令行参数直接完成了。
@@ -232,8 +231,8 @@ cargo embed --target thumbv7em-none-eabihf
     Finished dev [unoptimized + debuginfo] target(s) in 0.04s
       Config default
       ...
-     Erasing sectors ✔ [00:00:00] [#############################################################################################################################################################################################################################################]  4.00KiB/ 4.00KiB @ 25.10KiB/s (eta 0s )
- Programming pages   ✔ [00:00:00] [#############################################################################################################################################################################################################################################]  4.00KiB/ 4.00KiB @ 12.83KiB/s (eta 0s )
+     Erasing sectors ✔ [00:00:00] [############################################################################################################]  4.00KiB/ 4.00KiB @ 25.10KiB/s (eta 0s )
+ Programming pages   ✔ [00:00:00] [############################################################################################################]  4.00KiB/ 4.00KiB @ 12.83KiB/s (eta 0s )
     Finished flashing in 0.399s
     GDB stub listening at 127.0.0.1:1337
 ```
@@ -301,7 +300,7 @@ $2 = 42
 
 
 
-## 用代码点亮芯片
+## 用代码点亮led
 
 完成上述步骤后表明前期一切准备已经就绪，可以开始编写特定的功能代码了，先来实现一个简单的任务：点亮芯片上的小灯。为了让代码简洁作者用了[microbit的bsp](https://docs.rs/microbit-v2/0.13.0/microbit/)。修改`src/main.js`如下：
 
@@ -337,14 +336,236 @@ fn main() -> ! {//发散函数，《The embedonomicon》也说过
 chip = "nrf52833_xxAA" #芯片信息
 
 [default.reset]
-halt_afterwards = false #重置后挂起程序，这样就不会进入无线循环
+halt_afterwards = false #禁用重置后挂起程序
 
 [default.rtt] #禁用rtt
 enabled = false
 
-[default.gdb] #开启gdb debug
+[default.gdb] #关闭gdb debug
 enabled = false
 ```
 
-然后像上面那样使用cargo-embed将程序烧录到芯片，此时你会发现四个顶点的灯被点亮了（因为稍微修改了一下程序）。
+然后像上面那样使用`cargo-embed`将程序烧录到芯片，此时你会发现四个顶点的灯被点亮了（因为稍微修改了一下程序），效果如下：
 
+![discovery_light_up](../../../imgs/discovery_light_up.jpg)
+
+
+
+## 用代码控制led闪烁
+
+闪烁的原理是使用bsp提供的相关API，通过这些API可以控制芯片上的定时器，从而让程序停止运行一小段时间。我们先实现一个简单的例子：让程序每隔一秒往控制台打印一些内容。
+
+先修改`src/main.js`：
+
+```rust
+#![deny(unsafe_code)]
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry;//这个和《The embedonomicon》中的entry宏原理是一样的，原理是库函数才是真正的入口，然后库函数再来加载用户函数
+use rtt_target::{rtt_init_print, rprintln};
+use panic_rtt_target as _;
+use microbit::board::Board;
+use microbit::hal::timer::Timer;
+use microbit::hal::prelude::*;
+
+#[entry]
+fn main() -> ! {//发散函数，《The embedonomicon》也说过
+    rtt_init_print!();
+    let mut board = Board::take().unwrap();
+    let mut timer = Timer::new(board.TIMER0);
+    loop {
+        timer.delay_ms(1000u16);// 让程序暂停一小段时间
+        rprintln!("1000 ms passed");
+    }
+}
+```
+
+同时修改`Embed.toml`开启[rtt (Real Time Transfer)](https://www.segger.com/products/debug-probes/j-link/technology/about-real-time-transfer/#what-is-rtt)
+
+>  关于嵌入式集中输出技术可以看看这篇文章[《嵌入式 printf的几种办法 (ITM、SWO、semihosting、Keil Debug Viewer、RTT、串口重定向printf)》](https://blog.csdn.net/u014285530/article/details/118554828)，个人觉得不必纠结所有细节，知道都属于输出技术即可
+
+```toml
+[default.general]
+chip = "nrf52833_xxAA" #芯片信息
+
+[default.reset]
+halt_afterwards = false #禁用重置后挂起程序，这样芯片重置后就立马运行程序不会像之前那样停下来
+
+[default.rtt] #开启rtt
+enabled = true
+
+[default.gdb] #关闭gdb debug
+enabled = false
+```
+
+执行cargo-embed后控制台输出如下：
+
+```powershell
+ Terminal
+11:58:11.734 1000 ms passed
+11:58:12.761 1000 ms passed
+11:58:13.760 1000 ms passed
+11:58:14.752 1000 ms passed
+11:58:15.751 1000 ms passed
+11:58:16.753 1000 ms passed
+...
+```
+
+此时已经实现了间隔输出，有了这个基础实现闪烁就非常容易了，修改`main.rs`如下：
+
+```rust
+#![deny(unsafe_code)]
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry;//这个和《The embedonomicon》中的entry宏原理是一样的，原理是库函数才是真正的入口，然后库函数再来加载用户函数
+use rtt_target::{rtt_init_print, rprintln};
+use panic_rtt_target as _;
+use microbit::board::Board;
+use microbit::hal::timer::Timer;
+use microbit::hal::prelude::*;
+
+#[entry]
+fn main() -> ! {//发散函数，《The embedonomicon》也说过
+    rtt_init_print!();
+    let mut board = Board::take().unwrap();
+    let mut timer = Timer::new(board.TIMER0);
+    board.display_pins.col1.set_low().unwrap();
+    loop {
+        board.display_pins.row1.set_high().unwrap();//点亮
+        timer.delay_ms(1000u16);//让程序停止执行一小段时间
+        rprintln!("点亮");
+        board.display_pins.row1.set_low().unwrap();//熄灭
+        timer.delay_ms(1000u16);//让程序停止执行一小段时间
+        rprintln!("熄灭");
+    }
+}
+```
+
+## 用led实现扩散波纹效果
+
+像上面那样对单个led进行点亮是非常繁琐的事情，特别是一次性控制多个led的时候，因此bsp上面提供了[一些API](https://docs.rs/microbit-v2/0.13.0/microbit/display/blocking/struct.Display.html#method.show)以简化这个过程。这些API通过一个5x5的矩阵来控制led，大幅精简了代码。例如点亮最外一圈的led灯可以这样做：
+
+```rust
+#![deny(unsafe_code)]
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry;//这个和《The embedonomicon》中的entry宏原理是一样的，原理是库函数才是真正的入口，然后库函数再来加载用户函数
+use rtt_target::rtt_init_print;
+use panic_halt as _;
+use microbit::{
+    board::Board,
+    display::blocking::Display,
+    hal::{prelude::*, Timer},
+};
+
+#[entry]
+fn main() -> ! {//发散函数，《The embedonomicon》也说过
+    rtt_init_print!();//初始化rtt，不调用会报错
+    let board = Board::take().unwrap();
+    let mut timer = Timer::new(board.TIMER0);//初始化一个定时器
+    let mut display = Display::new(board.display_pins);//初始化一个用于显示的对象
+    let light_it_all = [//用5x5的矩阵来控制led亮灭
+        [1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1],
+    ];
+    loop {
+        display.show(&mut timer, light_it_all, 5000);
+    }
+}
+```
+
+执行`cargo-embed`命令后效果如下： 
+
+![discovery_light_up](../../../imgs/discovery_light_up2.jpg)
+
+
+
+有了上面的基础我们就能够实现复杂的效果，这里我将原文的转盘效果改成了波纹
+
+```rust
+#![deny(unsafe_code)]
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry; //这个和《The embedonomicon》中的entry宏原理是一样的，原理是库函数才是真正的入口，然后库函数再来加载用户函数
+use microbit::{
+    board::Board,
+    display::blocking::Display,
+    hal::{prelude::*, Timer},
+};
+use panic_halt as _;
+
+#[entry]
+fn main() -> ! {
+    //发散函数，《The embedonomicon》也说过
+
+    let board = Board::take().unwrap();
+    let mut timer = Timer::new(board.TIMER0);
+    let mut display = Display::new(board.display_pins);
+    let circle2 = [
+        // 外圈全亮
+        [1, 1, 1, 1, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 0, 0, 0, 1],
+        [1, 1, 1, 1, 1],
+    ];
+    let circle1 = [
+        // 中间圈全亮
+        [0, 0, 0, 0, 0],
+        [0, 1, 1, 1, 0],
+        [0, 1, 0, 1, 0],
+        [0, 1, 1, 1, 0],
+        [0, 0, 0, 0, 0],
+    ];
+    let circle0 = [
+        // 里圈全亮
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, 1, 0, 0],
+        [0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0],
+    ];
+
+    let light_up_duration = 100;
+
+    loop {
+        display.show(&mut timer, circle0, light_up_duration);
+        display.clear();
+        display.show(&mut timer, circle1, light_up_duration);
+        display.clear();
+        display.show(&mut timer, circle2, light_up_duration);
+        display.clear();
+        timer.delay_ms(500u16);
+
+    }
+}
+```
+
+没有这里不再需要使用rtt来debug，因此需要将`Embed.toml`中的rtt选项禁用
+
+```toml
+[default.general]
+chip = "nrf52833_xxAA" #芯片信息
+
+[default.reset]
+halt_afterwards = false #禁用重置后挂起程序
+
+[default.rtt] #关闭rtt
+enabled = false
+
+[default.gdb] #关闭gdb debug
+enabled = false
+```
+
+最终效果如下： 
+
+![discovery_light_up](../../../imgs/discovery_light_up3.gif)
+
+至此我们终于用Rust完成第一个嵌入式程序的开发了。
