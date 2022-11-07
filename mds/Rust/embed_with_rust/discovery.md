@@ -64,7 +64,7 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 * PAC（Peripheral Access Crate）：对芯片上外设接口的直接抽象，这是相当低的一个抽象层，能够控制，只有当有高层抽象无法满足时候需求时候才会使用。使用PAC需要了解硬件的特性（如果不是专门做嵌入式的，看那一套API是根本不知道代表什么外设，因此PAC其实是不怎么易用）
 
 * HAL（The Hardware Abstraction Layer）：因为PAC实在太底层了，直接用它并不方便，于是在其之上构建了HAL以便抽象芯片上的所有外设，通常会将芯片上的所有外设抽象为一个能收发数据的struct。
-* BSP（The  Board Support Package）：对整块board（例如micro:bit v2）的抽象，构建于HAL之上。
+* BSP（The  Board Support Package）：对整块开发板（例如micro:bit v2）的抽象，构建于HAL之上。
 
 
 
@@ -80,7 +80,7 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 
 
 
-# LED轮盘
+# 【5】LED轮盘
 
 本章节主要是在micro:bit v2上实现一个类似LED跑马灯的效果，此过程涉及到构建、烧录、debug、迭代代码等步骤，非常直观地让读者感受到嵌入式开发的基本流程和要素。本章节全部代码见[这里](https://github.com/youth7/rust-embed-discovery/tree/main/05-led-roulette)
 
@@ -215,12 +215,12 @@ ELF Header:
 
 
 
-## 将程序烧录到芯片
+## 烧录
 
 刷之前先用USB数据线将micro:bit v2和PC连接，然后执行以下命令将上一步生成的ELF文件烧录到硬件
 
 ```powershell
-cargo embed --target thumbv7em-none-eabihf # 每次更新代码后都需要用这个命令将程序烧录到芯片，下面不再重复，读者知道即可
+cargo embed --target thumbv7em-none-eabihf # 每次更新代码后都需要用这个命令将程序烧录到开发板，下面不再重复，读者知道即可
 ```
 
 > `cargo embed`会将ELF文件按照硬件的规范刷到指定的位置，它支持 nRF5x、STM32 、 LPC800等芯片，在《The embedonomicon》中因为使用QEMU模拟器的原因，这一步通过命令行参数直接完成了。
@@ -239,8 +239,8 @@ cargo embed --target thumbv7em-none-eabihf # 每次更新代码后都需要用�
 
 `cargo embed`完成了以下事情：
 
-* 擦除芯片上的旧数据，写入新数据（我们的代码）
-* 让芯片在reset之后挂起，不要立即执行`main`进入无限循环
+* 擦除开发板上的旧数据，写入新数据（我们的代码）
+* 让开发板在reset之后挂起，不要立即执行`main`进入无限循环
 * 在PC上开启一个GDB代理，为下一步的debug做准备
 
 步骤2、3在`Embed.toml`上有所体现。  此时被烧录进去的ELF文件是硬件上唯一运行的程序，不依赖操作系统直接控制硬件。
@@ -302,7 +302,7 @@ $2 = 42
 
 ## 用代码点亮led
 
-完成上述步骤后表明前期一切准备已经就绪，可以开始编写特定的功能代码了，先来实现一个简单的任务：点亮芯片上的小灯。为了让代码简洁作者用了[microbit的bsp](https://docs.rs/microbit-v2/0.13.0/microbit/)。修改`src/main.js`如下：
+完成上述步骤后表明前期一切准备已经就绪，可以开始编写特定的功能代码了，先来实现一个简单的任务：点亮开发板上的小灯。为了让代码简洁作者用了[microbit的bsp](https://docs.rs/microbit-v2/0.13.0/microbit/)。修改`src/main.js`如下：
 
 ```rust
 #![deny(unsafe_code)]
@@ -345,7 +345,7 @@ enabled = false
 enabled = false
 ```
 
-然后像上面那样使用`cargo-embed`将程序烧录到芯片，此时你会发现四个顶点的灯被点亮了（因为稍微修改了一下程序），效果如下：
+然后像上面那样使用`cargo-embed`将程序烧录到开发板，此时你会发现四个顶点的灯被点亮了（因为稍微修改了一下程序），效果如下：
 
 ![discovery_light_up](../../../imgs/discovery_light_up.jpg)
 
@@ -353,7 +353,7 @@ enabled = false
 
 ## 用代码控制led闪烁
 
-闪烁的原理是使用bsp提供的相关API，通过这些API可以控制芯片上的定时器，从而让程序停止运行一小段时间。我们先实现一个简单的例子：让程序每隔一秒往控制台打印一些内容。
+闪烁的原理是使用bsp提供的相关API，通过这些API可以控制开发板上的定时器，从而让程序停止运行一小段时间。我们先实现一个简单的例子：让程序每隔一秒往控制台打印一些内容。
 
 先修改`src/main.js`：
 
@@ -390,7 +390,7 @@ fn main() -> ! {//发散函数，《The embedonomicon》也说过
 chip = "nrf52833_xxAA" #芯片信息
 
 [default.reset]
-halt_afterwards = false #禁用重置后挂起程序，这样芯片重置后就立马运行程序不会像之前那样停下来
+halt_afterwards = false #禁用重置后挂起程序，这样开发板重置后就立马运行程序不会像之前那样停下来
 
 [default.rtt] #开启rtt
 enabled = true
@@ -569,3 +569,29 @@ enabled = false
 ![discovery_light_up](../../../imgs/discovery_light_up3.gif)
 
 至此我们终于用Rust完成第一个嵌入式程序的开发了。
+
+
+
+# 【6】串口通讯准备
+
+## 基本概念
+
+对串口通讯不熟悉的话先了解一下基本概念：
+
+* [看完这篇，不要说不懂串口通信！](https://www.eet-china.com/mp/a69082.html)
+* [Serial communication](https://en.wikipedia.org/wiki/Serial_communication)
+* [[串口通信与编程01：串口基础知识]](https://www.cnblogs.com/menlsh/archive/2013/01/28/2880580.html)
+
+## 环境准备    
+
+按照以下步骤测试开发板上的串口是否与PC上串口成功连接
+
+* 用USB数据线将开发板与PC连接
+* 按照[这里的介绍](https://blog.csdn.net/wwws1994/article/details/104482499)设置putty（一定要先勾选了`Seesion/Serial`后再去设置`Connection/Serial`），注意输入正确的端口和相关参数。
+* 一切成功的话会弹出一个控制台，往控制台输入内容你会发现板子上的USB连接端口的黄灯会不断闪烁，效果如下：    
+
+
+
+![](../../../imgs/discovery_serial_communication.gif)
+
+此时开发板已经通过跟PC上的串口相连，稍后我们将控制开发板往串口发送数据
