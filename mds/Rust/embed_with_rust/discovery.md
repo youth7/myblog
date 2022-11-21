@@ -220,7 +220,7 @@ ELF Header:
 刷之前先用USB数据线将micro:bit v2和PC连接，然后执行以下命令将上一步生成的ELF文件烧录到硬件
 
 ```powershell
-cargo embed --target thumbv7em-none-eabihf # 每次更新代码后都需要用这个命令将程序烧录到开发板，下面不再重复，读者知道即可
+cargo embed --target thumbv7em-none-eabihf # 每次更新代码后都需要用这个命令将程序烧录到开发板，下面简称为`cargo-embed`，不再每次重复
 ```
 
 > `cargo embed`会将ELF文件按照硬件的规范刷到指定的位置，它支持 nRF5x、STM32 、 LPC800等芯片，在《The embedonomicon》中因为使用QEMU模拟器的原因，这一步通过命令行参数直接完成了。
@@ -564,7 +564,7 @@ enabled = false
 enabled = false
 ```
 
-最终效果如下： 
+执行`cargo-embed`后最终效果如下： 
 
 ![discovery_light_up](../../../imgs/discovery_light_up3.gif)
 
@@ -594,4 +594,155 @@ enabled = false
 
 ![](../../../imgs/discovery_serial_communication.gif)
 
-此时开发板已经通过跟PC上的串口相连，稍后我们将控制开发板往串口发送数据
+此时开发板已经通过跟PC上的串口相连，下一章我们将控制开发板往串口发送数据
+
+
+
+# 【UART】
+
+本章节主要介绍如何使用UART协议进行串口通讯，因此运行程序的时候记得按照上述设置putty连上PC上的串口，完整代码见[这里](https://github.com/youth7/rust-embed-discovery/tree/main/07-urat)。
+
+先用`cargo new uart --bin`创建一个新项目，然后将上一个项目的`.cargo/config.toml`、`build.rs`、`memory.x`、`Embed.toml`全部拷贝过来。因为使用了新的依赖，需要修改`cargo.toml`：
+
+```rust
+[package]
+name = "urat"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+cortex-m = "0.7.6"
+cortex-m-rt = "0.7.1"
+rtt-target = { version = "0.3.1", features = ["cortex-m"] }
+panic-rtt-target = { version = "0.1.2", features = ["cortex-m"] }
+nb = "1.0.0"
+heapless = "0.7.16"
+embedded-hal = "0.2.7"
+microbit-v2 = { version = "0.13.0" }
+```
+
+关于uart的基础可以看：
+
+* [UART串口协议详解](https://zhuanlan.zhihu.com/p/150504364)
+
+
+
+## 发送一个字节
+
+先完成最简单的功能：控制开发板往串口发送一个字节，`main.rs`代码如下：
+
+```rust
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry; // cortex-m的运行时
+use panic_rtt_target as _;
+use rtt_target::rtt_init_print;
+
+use microbit::{
+    hal::prelude::*,
+    hal::uarte::{Baudrate, Parity, Uarte},
+};
+
+static mut TX_BUF: [u8; 1] = [0; 1];
+static mut RX_BUF: [u8; 1] = [0; 1];
+
+#[entry]
+fn main() -> ! {
+    rtt_init_print!(); //初始化rtt
+    let board = microbit::Board::take().unwrap();
+    let uarte_instance = Uarte::new(//构造一个uarte实例
+        board.UARTE0,
+        board.uart.into(),
+        Parity::EXCLUDED,
+        Baudrate::BAUD115200,
+    );
+    //将uarte实例上的tx和rx提取出来单独使用
+    let (mut tx, rx) = uarte_instance
+        .split(unsafe { &mut TX_BUF }, unsafe { &mut RX_BUF })
+        .unwrap();
+    nb::block!(tx.write(b'X')).unwrap(); //往串口上写入字符X
+    nb::block!(tx.flush()).unwrap(); //强制清空缓冲区，立即写入
+
+    loop {}
+}
+```
+
+使用`cargo-embed`烧录后putty的控制台会出现字母X，表示写入成功  
+
+
+
+![../../../imgs/discovery_uart_putty.jpg](../../../imgs/discovery_uart_putty.jpg)   
+
+
+
+
+
+> 关于UART和UARTE的区别可以看[这里](https://devzone.nordicsemi.com/f/nordic-q-a/62055/uart-and-uarte-difference)
+
+
+
+## 发送一个字符串
+
+发送一个字符串有两种方式：
+
+1. 重复调用`tx`上的`write()`方法
+2. 调用`tx`上的`write_str()`方法
+
+```rust
+#![no_main]
+#![no_std]
+
+use core::fmt::Write;
+
+use cortex_m_rt::entry; // cortex-m的运行时
+use panic_rtt_target as _;
+use rtt_target::rtt_init_print;
+
+use microbit::{
+    hal::prelude::*,
+    hal::uarte::{Baudrate, Parity, Uarte},
+};
+
+static mut TX_BUF: [u8; 1] = [0; 1];
+static mut RX_BUF: [u8; 1] = [0; 1];
+
+#[entry]
+fn main() -> ! {
+    rtt_init_print!(); //初始化rtt
+    let board = microbit::Board::take().unwrap();
+    let uarte_instance = Uarte::new(
+        //构造一个uarte实例
+        board.UARTE0,
+        board.uart.into(),
+        Parity::EXCLUDED,
+        Baudrate::BAUD115200,
+    );
+    //将uarte实例上的tx和rx提取出来单独使用
+    let (mut tx, rx) = uarte_instance
+        .split(unsafe { &mut TX_BUF }, unsafe { &mut RX_BUF })
+        .unwrap();
+
+    for byte in b"\xE9\x9B\xB7\xE7\x8C\xB4\r\n".iter() {
+        nb::block!(tx.write(*byte)).unwrap(); //往串口上写入字符X
+    }
+    
+    nb::block!(tx.flush()).unwrap(); //强制清空缓冲区，立即写入
+    
+    tx.write_str("The quick brown fox jumps over the lazy dog.\r\n\n").unwrap();
+    loop {}
+}
+```
+
+
+
+## 原生支持的方法和写入
+
+## 接收一个字节
+
+## 实现Echo服务器
+
+## 翻转字符串
+
+
+
