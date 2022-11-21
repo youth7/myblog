@@ -658,7 +658,7 @@ fn main() -> ! {
         Baudrate::BAUD115200,
     );
     //将uarte实例上的tx和rx提取出来单独使用
-    let (mut tx, rx) = uarte_instance
+    let (mut tx, _rx) = uarte_instance
         .split(unsafe { &mut TX_BUF }, unsafe { &mut RX_BUF })
         .unwrap();
     nb::block!(tx.write(b'X')).unwrap(); //往串口上写入字符X
@@ -719,7 +719,7 @@ fn main() -> ! {
         Baudrate::BAUD115200,
     );
     //将uarte实例上的tx和rx提取出来单独使用
-    let (mut tx, rx) = uarte_instance
+    let (mut tx, _rx) = uarte_instance
         .split(unsafe { &mut TX_BUF }, unsafe { &mut RX_BUF })
         .unwrap();
 
@@ -727,16 +727,12 @@ fn main() -> ! {
         nb::block!(tx.write(*byte)).unwrap(); //往串口上写入字符X
     }
     
-    nb::block!(tx.flush()).unwrap(); //强制清空缓冲区，立即写入
-    
     tx.write_str("The quick brown fox jumps over the lazy dog.\r\n\n").unwrap();
     loop {}
 }
 ```
 
 
-
-## 原生支持的方法和写入
 
 ## 接收一个字节
 
