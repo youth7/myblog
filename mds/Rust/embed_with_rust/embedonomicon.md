@@ -50,7 +50,7 @@
 
 # 【1】最小的`#![no_std]`程序
 
-这个章节主要是写一个`#![no_std]`版的hello world程序，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program](https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program)
+这个章节主要是写一个`#![no_std]`版的hello world程序，完整代码见[这里](https://github.com/youth7/the-embedonomicon-note/tree/01-the-smallest-nostd-program)
 
 ## std和core
 
@@ -169,7 +169,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 # 【2】内存布局
 
-这个章节主要是介绍如何通过各种工具来调整内存布局，使得生成的二进制程序能够在裸机上运行，并通过gdb来验证生成的程序是否正确，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout](https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout)
+这个章节主要是介绍如何通过各种工具来调整内存布局，使得生成的二进制程序能够在裸机上运行，并通过gdb来验证生成的程序是否正确，完整代码见[这里](https://github.com/youth7/the-embedonomicon-note/tree/02-memory-layout)
 
 这一章主要是讲如何生成正确结构的二进制文件，使其能够在特定架构的CPU上运行。要实现这个目标就必须：
 
@@ -181,7 +181,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 ## 了解CPU对二进制文件结构的要求
 
-教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)，看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
+教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)（关于ARM架构和处理器核心的关系可以参考[这里](https://zh.m.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B)），看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
 
 vector_table是一个指针数组，里面每个元素（vector）都指向了某个内存地址（大部分是异常处理函数的起始地址），关于它的具体结构可以看[这里](https://documentation-service.arm.com/static/5ea823e69931941038df1b02?token=)。对本教程来说最重要的是前2个指针：
 
@@ -460,7 +460,7 @@ $3 = (*mut i32) 0x2000fffc
 
 # 【3】`main`接口
 
-本章节主要介绍了如何将上一章节的成果从binary package转化为lib package，以便其他开发者可以使用它来开发自己的应用程序。这样相当于建立了一个抽象层，屏蔽了裸机相关的内容，开发者只需编写自己的`main`程序即可。本章难点在于理解为何需要初始化内存，以及如何初始化内存，完整代码见：[https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface](https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface)
+本章节主要介绍了如何将上一章节的成果从binary package转化为lib package，以便其他开发者可以使用它来开发自己的应用程序。这样相当于建立了一个抽象层，屏蔽了裸机相关的内容，开发者只需编写自己的`main`程序即可。本章难点在于理解为何需要初始化内存，以及如何初始化内存，完整代码见[这里](https://github.com/youth7/the-embedonomicon-note/tree/03-main-interface)
 
 为了达到这个目标，我们需要将之前的项目改为lib package（名为rt，即runtime的意思），然后再新建一个binary package（名为app），然后在`app`中引用`rt`。
 
