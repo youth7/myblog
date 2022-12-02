@@ -162,7 +162,8 @@ chip = "nrf52833_xxAA" #芯片信息
 [default.reset]
 halt_afterwards = true #重置后挂起程序，这样就不会进入无线循环
 
-[default.rtt] #禁用rtt
+#禁用rtt，如果希望使用rtt来打印数据则开启。有些实验必须开启rtt才能观察数据的传输，而有些则可以直接观察开发板的led灯或者putty的控制台输出
+[default.rtt] 
 enabled = false
 
 [default.gdb] #开启gdb debug
@@ -582,6 +583,8 @@ enabled = false
 * [Serial communication](https://en.wikipedia.org/wiki/Serial_communication)
 * [[串口通信与编程01：串口基础知识]](https://www.cnblogs.com/menlsh/archive/2013/01/28/2880580.html)
 
+接下来会分别介绍异步串口通讯（UART）和同步串口通讯（I2C）
+
 ## 环境准备    
 
 按照以下步骤测试开发板上的串口是否与PC上串口成功连接
@@ -598,7 +601,7 @@ enabled = false
 
 
 
-# 【UART】
+# 【7 UART】
 
 本章节主要介绍如何使用UART协议进行串口通讯，因此运行程序的时候记得按照上述设置putty连上PC上的串口，完整代码见[这里](https://github.com/youth7/rust-embed-discovery/tree/main/07-urat)。
 
@@ -736,9 +739,173 @@ fn main() -> ! {
 
 ## 接收一个字节
 
+接收字节也是非常简单，只需要调用`rx`上的`read()`即可
+
+```rust
+#![no_main]
+#![no_std]
+
+
+use cortex_m_rt::entry; // cortex-m的运行时
+use panic_rtt_target as _;
+use rtt_target::{rtt_init_print, rprint};
+
+use microbit::{
+    hal::prelude::*,
+    hal::uarte::{Baudrate, Parity, Uarte},
+};
+
+static mut TX_BUF: [u8; 1] = [0; 1];
+static mut RX_BUF: [u8; 1] = [0; 1];
+
+#[entry]
+fn main() -> ! {
+    rtt_init_print!(); //初始化rtt
+    let board = microbit::Board::take().unwrap();
+    let uarte_instance = Uarte::new(
+        //构造一个uarte实例
+        board.UARTE0,
+        board.uart.into(),
+        Parity::EXCLUDED,
+        Baudrate::BAUD115200,
+    );
+    //将uarte实例上的tx和rx提取出来单独使用
+    let (mut _tx, mut rx) = uarte_instance
+        .split(unsafe { &mut TX_BUF }, unsafe { &mut RX_BUF })
+        .unwrap();
+    loop {
+        //read是非阻塞的，如果没有字符可读的时候会抛出一个异常，
+        //为了能够读取到数据需要持续地调用read直到不抛异常为止，而nb::block其实就是做了这个事情
+        let byte = nb::block!(rx.read()).unwrap();
+        rprint!("{}", byte as char);// 将接收到的字符通过rtt回显
+    }
+}
+```
+
+此时在putty窗口中不断输入ascii字符，则rtt控制台会输出对应的字符
+
+
+
 ## 实现Echo服务器
 
-## 翻转字符串
+实现这个要做到以下2点：
+
+1. 缓存putty的输入，在一般情况下需要堆这样的内存空间，但我们是裸机编程，因此不会有OS给我们提供API来创建堆。
+2. 监听输入的每个字符，碰到回车字符的时候将缓存中的内容通过串口发送出去。
+
+第1点我们可以通过第三方库[`heapless::Vec`](https://docs.rs/heapless/latest/heapless/struct.Vec.html)来解决，这个库提供一些**定长**的常用数据结构，这意味着无法自动增长，当填入的数据超出限定时相关方法会报错。 
+
+第2点很简单，判断输入的值即可。
+
+结合上述两点，实现的代码如下：
+
+```rust
+#![no_main]
+#![no_std]
+
+use core::fmt::Write;
+use core::str;
+use cortex_m_rt::entry; // cortex-m的运行时
+use panic_rtt_target as _;
+use rtt_target::{rtt_init_print, rprintln};
+use heapless::Vec;
+
+use microbit::{
+    hal::prelude::*,
+    hal::uarte::{Baudrate, Parity, Uarte, UarteTx}, pac::{UARTE0},
+};
+
+static mut TX_BUF: [u8; 1] = [0; 1];
+static mut RX_BUF: [u8; 1] = [0; 1];
+
+#[entry]
+fn main() -> ! {
+    rtt_init_print!(); //初始化rtt
+    let board = microbit::Board::take().unwrap();
+    let uarte_instance = Uarte::new(
+        //构造一个uarte实例
+        board.UARTE0,
+        board.uart.into(),
+        Parity::EXCLUDED,
+        Baudrate::BAUD115200,
+    );
+    //将uarte实例上的tx和rx提取出来单独使用
+    let (mut tx, mut rx) = uarte_instance
+        .split(unsafe { &mut TX_BUF }, unsafe { &mut RX_BUF })
+        .unwrap();
+    let mut buffer:Vec<u8, 32> = Vec::new();    
+    loop {
+        //read是非阻塞的，如果没有字符可读的时候会抛出一个异常，
+        //为了能够读取到数据需要持续地调用read直到不抛异常为止，而nb::block其实就是做了这个事情
+        let byte = nb::block!(rx.read()).unwrap();
+        if byte == 0x0D {
+            send_str(&mut tx, &mut buffer);
+        }else{
+            if buffer.push(byte).is_err() {
+                send_str(&mut tx, &mut buffer);//如果超出长度就立即发送出去
+                continue;
+            }
+        }
+    }
+}
+
+fn send_str(tx: &mut UarteTx<UARTE0>, buffer: &mut Vec<u8, 32>){//发送字符串
+    let content = str::from_utf8(&buffer).unwrap();
+    rprintln!("{}", content);//在rtt控制台上检查接收的内容
+    tx.write_str(content).unwrap();//原封不动回写全部内容
+    tx.write_str("\r\n").unwrap();//加上回车换行以便显示
+    nb::block!(tx.flush()).unwrap();//刷新缓冲区以免内容残留
+    buffer.clear();//清空buffer以接收下一次内容
+}
+```
 
 
+
+# 【8 I2C】
+
+本章节主要介绍如何使用I2C协议进行串口通讯，与UART的区别是I2C是一个同步协议，并且使用半双工通讯（这一点很关键，会在编程模型中有所体现）。原文用了很长的篇幅介绍I2C的基本原理，其中有一些需要微电子相关知识才能完全理解，但这不重要，我们只需要关注库提供的编程接口即可，完整代码见[这里]()。
+
+像上一章那样，先用`cargo new i2c --bin`创建一个新项目，然后将然后将相关文件（`.cargo/config.toml`、`build.rs`、`memory.x`、`Embed.toml`）复制过来，然后修改`main.rs`：
+
+```rust
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry;
+use rtt_target::{rtt_init_print, rprintln};
+use panic_rtt_target as _;
+
+use microbit::hal::prelude::*;
+
+use microbit::{
+    hal::twim::Twim,
+    pac::twim0::frequency::FREQUENCY_A,
+};
+
+const ACCELEROMETER_ADDR: u8 = 0b0011001;//加速计地址
+const MAGNETOMETER_ADDR: u8 = 0b0011110;//磁力仪地址
+
+const ACCELEROMETER_ID_REG: u8 = 0x0f;//加速计的寄存器地址
+const MAGNETOMETER_ID_REG: u8 = 0x4f;//磁力仪的寄存器地址
+
+#[entry]
+fn main() -> ! {
+    rtt_init_print!();
+    let board = microbit::Board::take().unwrap();
+
+    let mut i2c =  Twim::new(board.TWIM0, board.i2c_internal.into(), FREQUENCY_A::K100) ;//构造一个twim对象，它兼容i2c
+
+    let mut acc = [0];//缓存，用来存放i2c设备的响应信息
+    let mut mag = [0];
+
+    // First write the address + register onto the bus, then read the chip's responses
+    i2c.write_read(ACCELEROMETER_ADDR, &[ACCELEROMETER_ID_REG], &mut acc).unwrap();//向设备的寄存器写入信息，然后读取设备的响应并写入到缓存中
+    i2c.write_read(MAGNETOMETER_ADDR, &[MAGNETOMETER_ID_REG], &mut mag).unwrap();//
+
+    rprintln!("The accelerometer chip's id is: {:#b}", acc[0]);
+    rprintln!("The magnetometer  chip's id is: {:#b}", mag[0]);
+
+    loop {}
+}
+```
 
