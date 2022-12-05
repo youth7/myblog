@@ -865,6 +865,14 @@ fn send_str(tx: &mut UarteTx<UARTE0>, buffer: &mut Vec<u8, 32>){//发送字符�
 
 本章节主要介绍如何使用I2C协议进行串口通讯，与UART的区别是I2C是一个同步协议，并且使用半双工通讯（这一点很关键，会在编程模型中有所体现）。原文用了很长的篇幅介绍I2C的基本原理，其中有一些需要微电子相关知识才能完全理解，但这不重要，我们只需要关注库提供的编程接口即可，完整代码见[这里]()。
 
+
+
+## 读取单个寄存器的值
+
+开发板上的两个传感器（磁力计+加速度计）被封装在一个小组件（LSM303AGR 集成电路）中，可以通过I2C总线来访问。对外看来它俩像是具备不同地址的从机。每个设备（从机）都有自己的内存用来存储它们的感知结果，我们主要通过读写这些内存与设备交互。具体的通讯细节原文有详细介绍这里不再重复，关键之处是通过总线进行半双工的通讯。
+
+从某种意义上说，这两个设备和开发板上的内部外设是非常相似的，唯一的区别是它们的寄存器没有映射到开发板的内存空间中，所以访问它们需要i2c总线。
+
 像上一章那样，先用`cargo new i2c --bin`创建一个新项目，然后将然后将相关文件（`.cargo/config.toml`、`build.rs`、`memory.x`、`Embed.toml`）复制过来，然后修改`main.rs`：
 
 ```rust
@@ -883,10 +891,10 @@ use microbit::{
 };
 
 const ACCELEROMETER_ADDR: u8 = 0b0011001;//加速计地址
-const MAGNETOMETER_ADDR: u8 = 0b0011110;//磁力仪地址
+const MAGNETOMETER_ADDR: u8 = 0b0011110;//磁力计地址
 
 const ACCELEROMETER_ID_REG: u8 = 0x0f;//加速计的寄存器地址
-const MAGNETOMETER_ID_REG: u8 = 0x4f;//磁力仪的寄存器地址
+const MAGNETOMETER_ID_REG: u8 = 0x4f;//磁力计的寄存器地址
 
 #[entry]
 fn main() -> ! {
@@ -895,17 +903,64 @@ fn main() -> ! {
 
     let mut i2c =  Twim::new(board.TWIM0, board.i2c_internal.into(), FREQUENCY_A::K100) ;//构造一个twim对象，它兼容i2c
 
-    let mut acc = [0];//缓存，用来存放i2c设备的响应信息
+    let mut acc = [0];//缓存，用来存放i2c设备的响应信息，这种通风格式和上一章uart不同，是因为i2c的半双工通讯
     let mut mag = [0];
 
-    // First write the address + register onto the bus, then read the chip's responses
-    i2c.write_read(ACCELEROMETER_ADDR, &[ACCELEROMETER_ID_REG], &mut acc).unwrap();//向设备的寄存器写入信息，然后读取设备的响应并写入到缓存中
-    i2c.write_read(MAGNETOMETER_ADDR, &[MAGNETOMETER_ID_REG], &mut mag).unwrap();//
+    // 向设备的寄存器写入信息，然后读取设备的响应并写入到缓存中，
+    i2c.write_read(ACCELEROMETER_ADDR, &[ACCELEROMETER_ID_REG], &mut acc).unwrap();
+    i2c.write_read(MAGNETOMETER_ADDR, &[MAGNETOMETER_ID_REG], &mut mag).unwrap();
 
     rprintln!("The accelerometer chip's id is: {:#b}", acc[0]);
     rprintln!("The magnetometer  chip's id is: {:#b}", mag[0]);
 
     loop {}
+}
+```
+
+要理解32/33这两行的代码必须仔细阅读[LSM303AGR的文档](https://www.st.com/resource/en/datasheet/lsm303agr.pdf)6.1.1节以及table20~23，文档中的SUB阶段就是发送寄存器地址的时机。
+
+> After the start condition (ST) a slave address is sent, once a  slave acknowledge (SAK) has been returned, an 8-bit subaddress (SUB) is transmitted: **the  7 LSb represent the actual register address** while the MSB enables address auto increment. 
+
+
+
+///////////////////////////////////////////////////////
+
+```rust
+#![no_main]
+#![no_std]
+
+use cortex_m_rt::entry;
+use rtt_target::{rtt_init_print, rprintln};
+use panic_rtt_target as _;
+
+use microbit::{
+    hal::twim::Twim,
+    pac::twim0::frequency::FREQUENCY_A,
+};
+
+use lsm303agr::{
+    AccelOutputDataRate, Lsm303agr,
+};
+
+
+#[entry]
+fn main() -> ! {
+    rtt_init_print!();
+    let board = microbit::Board::take().unwrap();
+
+    let i2c =  Twim::new(board.TWIM0, board.i2c_internal.into(), FREQUENCY_A::K100) ;//构造一个twim对象，它兼容i2c
+
+    // Code from documentation
+    let mut sensor = Lsm303agr::new_with_i2c(i2c);
+    sensor.init().unwrap();
+    sensor.set_accel_odr(AccelOutputDataRate::Hz50).unwrap();
+    loop {
+        if sensor.accel_status().unwrap().xyz_new_data {
+            let data = sensor.accel_data().unwrap();
+            // RTT instead of normal print
+            rprintln!("Acceleration: x {} y {} z {}", data.x, data.y, data.z);
+        }
+    }
 }
 ```
 
