@@ -159,7 +159,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 >panic = 'abort'
 >```
 
-可见前者是程序panic时候调用的，而运行panic处理程序时候，可以选择是unwind stack或者直接abort。我个人的疑问是这两个设定是相互独立的吗，还是说`#[panic_handler]`指向的实现里面包含了`eh_personality`？
+可见前者是程序panic时候调用的，而运行panic处理程序时候，可以选择是unwind stack或者直接abort。我个人的疑问是这两个设定是什么关系？当`panic_handler`的行为是unwind的时候，它会调用`eh_personality`？
 
 但无论如何，**在本文的运行环境下并不需要对`eh_personality`做任何修改**
 
