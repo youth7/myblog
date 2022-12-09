@@ -869,9 +869,9 @@ fn send_str(tx: &mut UarteTx<UARTE0>, buffer: &mut Vec<u8, 32>){//发送字符�
 
 ## 读取单个寄存器的值
 
-开发板上的两个传感器（磁力计+加速度计）被封装在一个小组件（LSM303AGR 集成电路）中，可以通过I2C总线来访问。对外看来它俩像是具备不同地址的从机。每个设备（从机）都有自己的内存用来存储它们的感知结果，我们主要通过读写这些内存与设备交互。具体的通讯细节原文有详细介绍这里不再重复，关键之处是通过总线进行半双工的通讯。
+开发板上的两个传感器（磁力计+加速度计）被封装在一个小组件（LSM303AGR 集成电路）中，可以通过I2C总线来访问。对外看来它俩像是具备不同地址的从机。每个设备都有自己的内存（貌似就是一大堆的寄存器）用来存储它们的感知结果，我们主要通过读写这些内存与设备交互。具体的通讯细节原文有详细介绍这里不再重复，关键之处是通过总线进行半双工的通讯。
 
-从某种意义上说，这两个设备和开发板上的内部外设是非常相似的，唯一的区别是它们的寄存器没有映射到开发板的内存空间中，所以访问它们需要i2c总线。
+从某种意义上说，这两个设备和开发板上的**内部外设**是非常相似的，**唯一的区别是它们的寄存器没有映射到开发板的内存空间中（因此不能通过读写开发板的内存空间来访问它们），所以访问它们需要通过i2c总线**。
 
 像上一章那样，先用`cargo new i2c --bin`创建一个新项目，然后将然后将相关文件（`.cargo/config.toml`、`build.rs`、`memory.x`、`Embed.toml`）复制过来，然后修改`main.rs`：
 
@@ -917,13 +917,19 @@ fn main() -> ! {
 }
 ```
 
-要理解32/33这两行的代码必须仔细阅读[LSM303AGR的文档](https://www.st.com/resource/en/datasheet/lsm303agr.pdf)6.1.1节以及table20~23，文档中的SUB阶段就是发送寄存器地址的时机。
+要理解32、33这两行的代码必须仔细阅读[LSM303AGR的文档](https://www.st.com/resource/en/datasheet/lsm303agr.pdf)6.1.1节以及table20~23：
 
 > After the start condition (ST) a slave address is sent, once a  slave acknowledge (SAK) has been returned, an 8-bit subaddress (SUB) is transmitted: **the  7 LSb represent the actual register address** while the MSB enables address auto increment. 
 
+文档中规定从机回复SAK后，发送方必须发送一个用以表明寄存器地址的subaddress (SUB)，这意味着代码中传入寄存器的地址是有原因的。
 
 
-///////////////////////////////////////////////////////
+
+
+
+## 使用驱动访问设备
+
+通过上面的例子可知访问i2c设备是多么繁琐，为了简化这个过程我们可以使用驱动，它封装了全部细节并向用户提供了简洁的接口，
 
 ```rust
 #![no_main]
@@ -950,17 +956,132 @@ fn main() -> ! {
 
     let i2c =  Twim::new(board.TWIM0, board.i2c_internal.into(), FREQUENCY_A::K100) ;//构造一个twim对象，它兼容i2c
 
-    // Code from documentation
+    // 使用Lsm303agr驱动来访问i2c设备
     let mut sensor = Lsm303agr::new_with_i2c(i2c);
     sensor.init().unwrap();
     sensor.set_accel_odr(AccelOutputDataRate::Hz50).unwrap();
     loop {
         if sensor.accel_status().unwrap().xyz_new_data {
             let data = sensor.accel_data().unwrap();
-            // RTT instead of normal print
+            // 将获取到的数据通过rtt输出到控制台
             rprintln!("Acceleration: x {} y {} z {}", data.x, data.y, data.z);
         }
     }
+}
+```
+
+将程序烧录到开发板后会不断输出当前加速度的值，此时你不断摇晃开发板会发现输出的数值出现明显波动。
+
+
+
+## 一个综合的应用
+
+本章将会实现一个微型的应用，通过命令行参数控制开发板显示磁力计或加速计的内容，它的原理如下：
+
+* 通过putty使用uart协议向开发板发送命令
+* 根据用户发送的内容，通过i2c协议读取磁力计/加速计的内容
+* 通过uart协议将读取到的数据返回给putty显示
+
+具体代码如下：
+
+```rust
+#![no_main]
+#![no_std]
+use core::fmt::Write;
+use heapless::Vec;
+
+use cortex_m_rt::entry;
+use panic_rtt_target as _;
+use rtt_target::{rprintln, rtt_init_print};
+
+use microbit::{
+    hal::prelude::*,
+    hal::uarte::{Baudrate, Parity, Pins, Uarte, UarteTx},
+    hal::{twim::Twim, uarte::UarteRx},
+    pac::twim0::frequency::FREQUENCY_A,
+    pac::{TWIM0, UARTE0},
+};
+
+use lsm303agr::{
+    interface::I2cInterface, mode::MagOneShot, AccelOutputDataRate, Lsm303agr, MagOutputDataRate,
+};
+
+static mut TX_BUF: [u8; 1] = [0; 1];
+static mut RX_BUF: [u8; 1] = [0; 1];
+
+#[entry]
+fn main() -> ! {
+    rtt_init_print!();
+    let board = microbit::Board::take().unwrap();
+    //初始化uart设备
+    let (mut tx, mut rx) = get_tx_and_rx(
+        board.UARTE0,
+        board.uart.into(),
+        Parity::EXCLUDED,
+        Baudrate::BAUD115200,
+    );
+    //初始化i2c设备
+    let i2c = Twim::new(board.TWIM0, board.i2c_internal.into(), FREQUENCY_A::K100);
+    let sensor = init_sensor(i2c);
+    let mut sensor = sensor.into_mag_continuous().ok().unwrap();
+    let mut buffer: Vec<u8, 32> = Vec::new();
+    loop {
+        //阻塞读取uart设备
+        let byte = nb::block!(rx.read()).unwrap();
+        if byte == 0x0D {
+            //判断读取到的内容
+            let input = core::str::from_utf8(&buffer).unwrap();
+            rprintln!("输入内容:{}", input);
+            match input {//跟i2c通讯
+                "a" => {
+                    while !sensor.accel_status().unwrap().xyz_new_data {} // 等待直到数据就绪
+                    let data = sensor.accel_data().unwrap();
+                    writeln!(//回显读取到的内容
+                        &mut tx,
+                        "Acceleration: x {} y {} z {}\r",
+                        data.x, data.y, data.z
+                    ).unwrap();
+                }
+                "m" => {
+                    while !sensor.mag_status().unwrap().x_new_data {} // 等待直到数据就绪
+                    let data = sensor.mag_data().unwrap();
+                    writeln!(
+                        &mut tx,
+                        "Magnetometer: x {} y {} z {}\r",
+                        data.x, data.y, data.z
+                    ).unwrap();
+                }
+                _ => writeln!(&mut tx, "命令无法识别:{}\r", input).unwrap(),
+            };
+
+            buffer.clear();
+            continue;
+        }
+        if buffer.push(byte).is_err() {
+            writeln!(&mut tx, "输入过长\r").unwrap();
+            buffer.clear();
+        }
+    }
+}
+
+fn get_tx_and_rx(
+    uarte: UARTE0,
+    pins: Pins,
+    parity: Parity,
+    baudrate: Baudrate,
+) -> (UarteTx<UARTE0>, UarteRx<UARTE0>) {
+    let uarte_instance = Uarte::new(uarte, pins, parity, baudrate);
+    uarte_instance
+        .split(unsafe { &mut TX_BUF }, unsafe { &mut RX_BUF })
+        .unwrap()
+}
+
+fn init_sensor(i2c: Twim<TWIM0>) -> Lsm303agr<I2cInterface<Twim<TWIM0>>, MagOneShot> {
+    let mut sensor = Lsm303agr::new_with_i2c(i2c);
+    sensor.init().unwrap();
+    sensor.set_accel_odr(AccelOutputDataRate::Hz50).unwrap();
+    sensor.set_mag_odr(MagOutputDataRate::Hz50).unwrap();
+    sensor
 }
 ```
 
