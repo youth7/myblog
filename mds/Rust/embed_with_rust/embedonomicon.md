@@ -146,7 +146,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 
 
-## `#[panic_handler]`和`eh_personality`
+## `[panic_handler]`和`eh_personality`
 
 刚开始的时候觉得两者都是程序崩溃时调用的，它们有什么区别？[文档](https://doc.rust-lang.org/stable/book/ch09-01-unrecoverable-errors-with-panic.html)是这样解释的：
 
@@ -274,7 +274,7 @@ SECTIONS
 定义了可用的存储空间的地址和大小。此处定义了两个可用的存储空间：
 
 * FLASH：定义了微控制器上的闪存起始和大小
-* RAM：定义为微控制器上的内存起始和大小
+* RAM：定义了微控制器上的内存起始和大小
 
 具体的值是根据LM3S6965的技术文档
 
@@ -284,7 +284,7 @@ SECTIONS
 
 定义了程序的入口为Rust代码中定义的函数`Reset`。链接器会抛弃未使用的节，如果脚本中没有这一行则链接器会认为`Reset`未被使用从而抛弃之。
 
-`Reset`就是在系统重置时运行的第一个函数，因此指定它为入口也是合理的。注意`ENTRY`只是在ELF中标明了了程序的入口，要让程序真的成为机器重置时候第一个被执行的程序，还需要符合CPU的要求。具体到本文的话，就是要设置好vector_table。开发人员有必要让vector_table中的`Reset`作为`ENTRY`的参数，这样两处关于开机后的入口就一致了，否则会让人困惑
+`Reset`就是在系统重置时运行的第一个函数，因此指定它为入口也是合理的。注意`ENTRY`只是在ELF中标明了了程序的入口（通过`e_entry`），在有OS的系统中OS会读取`e_entry`并跳到相应的地方执行。但在裸机环境要让程序真的成为机器重置时候第一个被执行的程序，还需要符合CPU的要求。具体到本文的话，就是要设置好vector_table。开发人员有必要让vector_table中的`Reset`作为`ENTRY`的参数，这样两处关于开机后的入口就一致了，否则会让人困惑
 
 ### [EXTERN](https://sourceware.org/binutils/docs/ld/Miscellaneous-Commands.html)
 
