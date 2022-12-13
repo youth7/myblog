@@ -18,6 +18,8 @@
 
 
 
+
+
 # Rust基础
 
 ## cargo（未完成）
@@ -26,9 +28,13 @@
 
 ## 编译器设置（未完成）
 
-## Rust裸机编程（未完成）
+## Rust裸机编程
 
+参考以下文章，特别是第一篇的前几章：
 
+1. [《The embedonomicon》学习笔记](../embedonomicon.md)
+
+2. [《discovery》学习笔记](../discovery.md)
 
 # QEMU基础
 

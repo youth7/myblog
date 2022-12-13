@@ -59,6 +59,8 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 
 ## 术语理解
 
+
+
 在嵌入式里面有不同的抽象层次，例如：
 
 * PAC（Peripheral Access Crate）：对芯片上外设接口的直接抽象，这是相当低的一个抽象层，能够控制，只有当有高层抽象无法满足时候需求时候才会使用。使用PAC需要了解硬件的特性（如果不是专门做嵌入式的，看那一套API是根本不知道代表什么外设，因此PAC其实是不怎么易用）
@@ -77,6 +79,10 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 | 第3层抽象：BSP | [https://docs.rs/microbit-v2/0.13.0/microbit/](https://docs.rs/microbit-v2/0.13.0/microbit/) |
 
 每一款硬件都抽象一个HAL是可行的，但这样程序就很难移植，设计一个尽可能通用的HAL对绝大多数硬件进行抽象是有必要的。在rust嵌入式开发中，[`embedded-hal`](https://crates.io/crates/embedded-hal)就是对第2层的通用抽象。这就是文中说的统一图层（Unifying the layers），简单来说就是面向接口开发，使得代码可以移植和复用。
+
+可参考下图理解上述的层级关系：
+
+![](/imgs/rust_layers.svg)
 
 
 
@@ -1084,4 +1090,82 @@ fn init_sensor(i2c: Twim<TWIM0>) -> Lsm303agr<I2cInterface<Twim<TWIM0>>, MagOneS
     sensor
 }
 ```
+
+
+
+# 【9 LED指南针】
+
+本章节主要是使用磁力计完成一个指南针功能，比较乏味且一些物理有关的原理不是很清晰让人不爽（例如磁力计为何需要校正以及校正的原理，虽然这些和课程内容不太相关），唯一需要注意的是3维向量的计算公式，在计算大小的时候需要用到：
+$$
+|\vec{V}| = \sqrt{x^2 + y^2 + z^2}
+$$
+由于过于乏味决定有空再补全剩下内容。
+
+
+
+# 【10 LED指南针】
+
+本章节主要是使用加速计完成一个指南针功能，由于过于乏味决定有空再补全剩下内容。
+
+
+
+
+
+# 【附录： 关于几种debug技术的分类与记录】
+
+## JTAG：
+
+原本是用来做芯片测试的，后来发展为debug工具，最古老、通用的协议
+
+* https://cloud.tencent.com/developer/article/1739454
+
+*  https://www.zhihu.com/question/36391193/answer/132979357
+
+
+
+## SWD：
+
+ARM内部搞出来的另外一个debug协议，用来取代JTAG
+
+* [SWD - SEGGER Wiki](https://wiki.segger.com/SWD)
+
+
+
+## Semihosting：
+
+一种将target输出重定位到host的思路（并非具体标准），非常古老。
+
+> Semihosting is nothing new. It has been used in Embedded Systems for many decades. **Most companies in the space of development tools have developed their own semihosting, basically all following the same idea of halting the target processor, typically by letting it run into a breakpoint. However, there was not interoperability since there was no standard**, until ARM defined somewhat of a standard for ARM processors. This standard, is available at http://infocenter.arm.com/help/topic/com.arm.doc.dui0471i/CHDJHHDI.html . Unfortunately it does not come with an implementation.
+
+> 使用SemiHosting功能,工程师可以不使用额外的UART口来进行log的打印, 只需要在JTAG通信正常的情况下就可以实现相同的功能. 这个功能在芯片开发早期阶段非常有用,特别是当UART口有其他用途的时候. 该功能对于帮助芯片的快速迭代非常有帮助.
+
+* [OpenOCD上Semihosting功能浅析(基于RISCV) - 知乎 (zhihu.com)](https://zhuanlan.zhihu.com/p/506062424)
+
+* [Semihosting - SEGGER Wiki](https://wiki.segger.com/Semihosting)
+
+
+
+## RTT：
+
+SEGGER's Real Time Transfer (RTT) is the proven technology for system monitoring and interactive user I/O in embedded applications. **It  combines the advantages of SWO and semihosting at very high performance**.
+
+> 1. Bi-directional communication with the target application
+>
+> 2. Very high transfer speed without affecting real time behavior
+>
+> 3. Uses debug channel for communication
+>
+> 4. **No additional hardware or pin on target required**
+>
+> 5. Supported by any J-Link model
+>
+> 6. Supported by ARM Cortex-A/R/M, RISC-V and Renesas RX
+>
+> 7. Complete implementation code providing functionality and freedom
+
+
+
+* [RTT - SEGGER Wiki](https://wiki.segger.com/RTT)
+
+
 
