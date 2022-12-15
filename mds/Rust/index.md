@@ -8,3 +8,5 @@
 
 [《The embedonomicon》笔记（裸机编程的一些细节）](./embed_with_rust/embedonomicon.md)
 
+[《Discovery》笔记（嵌入式编程初探）](./embed_with_rust/discovery.md)
+
