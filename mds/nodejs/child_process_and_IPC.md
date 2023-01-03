@@ -94,13 +94,7 @@ node.stdout.on("data", function(data) {
   console.log(String(data));
 });
 ```
-看文档时候我发现一个例子
-```JavaScript
-// Open an extra fd=4, to interact with programs presenting a
-// startd-style interface.
-spawn('prg', [], { stdio: ['pipe', null, null, null, 'pipe'] });
-```
-从`stdio`的值来看父子进程之间建立了额外的ipc通道，父进程可以很容易引用这些额外的ipc通道，但是我找了很久都没有发现**子进程那边是如何使用这些额外的ipc通道**，希望有大牛能告之。
+
 
 ### detached和守护进程
 生成子进程的时候如果传递了`detached=true`，则效果是使得子进程成为新的session和group的leader，效果和[SETSID(2)](http://man7.org/linux/man-pages/man2/setsid.2.html)是类似的。但也是仅此而已了，它和守护进程并没有明显的关联，文档中特别指出
