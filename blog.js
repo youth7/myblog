@@ -6,7 +6,7 @@ require("./lib/hijack_console");
 
 const loadFiles = require("./lib/load_files");
 
-function extractIp(req){
+function extractIp(req) {
 	return (req.socket.remoteAddress);
 }
 
@@ -15,7 +15,7 @@ function getArticle(req, res) {
 	const pathname = decodeURIComponent(url.parse(req.url).pathname);//解码包含包含中文的url
 	showContent(req, res, pathname);
 }
-const notModified = function(req, content) {
+const notModified = function (req, content) {
 	const eTag = req.headers["if-none-match"];
 	if (eTag === content.eTag) {
 		//console.log("eTag相等", eTag);
@@ -25,13 +25,13 @@ const notModified = function(req, content) {
 	}
 };
 
-const getContentType =function(pathname){
+const getContentType = function (pathname) {
 	let extendName = require("path").extname(pathname);
-	if(extendName.endsWith(".md")){
-		extendName = extendName.replace(".md", ".html");	
+	if (extendName.endsWith(".md")) {
+		extendName = extendName.replace(".md", ".html");
 	}
 	return require("mime-types").contentType(extendName);
-} 
+}
 
 async function showContent(req, res, pathname, type) {
 	let content = await loadFiles.getByPathname(path.join(__dirname, pathname));
@@ -79,5 +79,7 @@ async function start() {
 		console.error(e);
 	}
 }
-
+process.on("uncaughtException", (error, source) => {
+	console.log("uncaughtException", error, source)
+});
 start();
