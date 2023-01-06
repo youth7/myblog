@@ -124,7 +124,7 @@ var c = new child(33,44);
 在上述代码中，为了继承父类的公有属性我们使用了`child.prototype = Object.create(parent.prototype)`，其实继承父类的公有属性有以下几种写法：
 
 1. `child.prototype = parent.prototype`  
-   缺点：子类和父类共享了同一个原型，如果其中一个修改了原型会影响对方
+   缺点：子类和父类共享了同一个原型，它的缺点首先不符合我们的设定：**child是parent的子类**。同时通过`new child()`构造出来的对象不能通过`instanceof`去区分是`parent`还是`child`的实例
 
 2. `child.prototype = new person()`  
    缺点：`parent`被重复调用了2次（第一次是`parent.call(this, myname, 34)`）  ，其实这个问题并不大，因为`child.prototype = new person()`仅仅在设置`child`原型的时候调用一次。
