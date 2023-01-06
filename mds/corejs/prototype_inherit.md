@@ -121,13 +121,16 @@ child.prototype = Object.create(parent.prototype);
 var c = new child(33,44);
 ```
 
-在上述代码中，为了继承父类的公有属性我们使用了`child.prototype = Object.create(parent.prototype)`，其实继承父类的公有属性有以下几种写法
-* `child.prototype = parent.prototype`  
-	缺点：子类和父类共享了同一个原型，如果其中一个修改了原型会影响对方
-* `child.prototype = new person()`  
-	缺点：`parent`被重复调用了2次（第一次是`parent.call(this, myname, 34);`）  ，其实这个问题并不大，因为`child.prototype = new person()`仅仅在设置`child`原型的时候调用一次。
-* `child.prototype = Object.create(parent.prototype)`  
-	优点：和第二种方法的区别其实就是被`new person()`和`Object.create(parent.prototype)`创建出来的对象的区别。     通过`Object.create(parent.prototype)`创建出来的原型会缺少`myname`和`getPrivate`，但是这完全没有问题，因为我们并不需要这两个属性，并且我们在`child`内部已经通过`parent.call`来为子类继承所需的属性了
+在上述代码中，为了继承父类的公有属性我们使用了`child.prototype = Object.create(parent.prototype)`，其实继承父类的公有属性有以下几种写法：
+
+1. `child.prototype = parent.prototype`  
+   缺点：子类和父类共享了同一个原型，如果其中一个修改了原型会影响对方
+
+2. `child.prototype = new person()`  
+   缺点：`parent`被重复调用了2次（第一次是`parent.call(this, myname, 34)`）  ，其实这个问题并不大，因为`child.prototype = new person()`仅仅在设置`child`原型的时候调用一次。
+
+3. `child.prototype = Object.create(parent.prototype)`  
+   优点：和第二种方法的区别是，通过这种方法创建出来的原型**会缺少`myname`和`getPrivate`**，但是这完全没有问题，因为我们并不需要这两个属性，并且我们在`child`内部已经通过`parent.call`来为子类继承所需的属性。
 
 # 总结：
 如果想实现类似Java那种基于类的继承，可以这么做
