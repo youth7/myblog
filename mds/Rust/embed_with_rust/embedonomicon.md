@@ -159,11 +159,13 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 >panic = 'abort'
 >```
 
-可见前者是程序panic时候调用的，而运行panic处理程序时候，可以选择是unwind stack或者直接abort。我个人的疑问是这两个设定是什么关系？当`panic_handler`的行为是unwind的时候，它会调用`eh_personality`？
+可见前者是程序panic时候调用的，而运行panic处理程序时候，可以选择是unwind stack或者直接abort。我个人的疑问是这两个设定是什么关系？当`panic_handler`的行为是unwind的时候，它会调用`eh_personality`？但无论如何，**在本文的运行环境下并不需要对`eh_personality`做任何修改**
 
-但无论如何，**在本文的运行环境下并不需要对`eh_personality`做任何修改**
+> 另：eh应该是exception handling的缩写，见[这里的讨论](https://www.reddit.com/r/rust/comments/estvau/til_why_the_eh_personality_language_item_is/) 
 
-> 另：eh应该是exception handling的缩写，见[这里的讨论](https://www.reddit.com/r/rust/comments/estvau/til_why_the_eh_personality_language_item_is/)
+
+
+> 在第二章的末尾，我们会通过GDB来验证通过`[panic_handler]`自定义的崩溃处理函数确实会在系统崩溃时候被调用
 
 
 
@@ -181,7 +183,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 ## 了解CPU对二进制文件结构的要求
 
-教程是基于Cortex-M3微控制器[LM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)（关于ARM架构和处理器核心的关系可以参考[这里](https://zh.m.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B)），看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
+教程是基于Cortex-M3的MCULM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)（关于ARM架构和处理器核心的关系可以参考[这里](https://zh.m.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B)），看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
 
 vector_table是一个指针数组，里面每个元素（vector）都指向了某个内存地址（大部分是异常处理函数的起始地址），关于它的具体结构可以看[这里](https://documentation-service.arm.com/static/5ea823e69931941038df1b02?token=)。对本教程来说最重要的是前2个指针：
 
@@ -455,6 +457,54 @@ $2 = 42
 $3 = (*mut i32) 0x2000fffc
 (gdb) quit					#退出
 ```
+
+
+
+## 检查自定义的panic函数
+
+此时我们再略微修改一下代码，让程序崩溃
+
+```rust
+#[panic_handler]//自定义程序奔溃时的行为，因为缺乏运行时的原因这个必须自己定义
+fn hello_panic(_panic: &PanicInfo<'_>) -> ! { //重命名一下函数的名称，不影响整个流程
+    let _y = 64;
+    loop {}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn Reset() -> ! {
+    let _x = 42;
+    //永不退出的发散函数
+    panic!("oh, system crash!");//让程序主动panic，则上面自定义的hello_panic会被调用
+    loop {}
+}
+```
+
+然后像上一小节那样编译程序并启动Qemu和gdb并在另一个终端连接上，然后在源码的第7行（自定义的`hello_panic`函数的内部）打上断点，则系统崩溃时这个函数会被调用
+
+```powershell
+arm-none-eabi-gdb -q target/thumbv7m-none-eabi/debug/app
+Reading symbols from target/thumbv7m-none-eabi/debug/app...
+(gdb)  target remote :3333
+Remote debugging using :3333
+app::Reset () at src/main.rs:12
+12      pub unsafe extern "C" fn Reset() -> ! {
+(gdb) b 7        #在源码的第7行打上断点，即hello_panic函数内部
+Breakpoint 1 at 0x16a: file src/main.rs, line 7.
+(gdb) n
+13          let _x = 42;
+(gdb) n
+15          panic!("oh, system crash!");//panichello_panic    #系统panic
+(gdb) n
+
+Breakpoint 1, app::hello_panic (_panic=0x2000ffbc) at src/main.rs:7
+7           let _y = 64;   #系统panic后主动跳转到hello_panic
+(gdb)
+```
+
+
+
+`hello_panic`如期被调用，说明`#[panic_handler]`的确起了作用，另外可见被`#[panic_handler]`修饰的函数其名称也是可以自定义的
 
 
 
