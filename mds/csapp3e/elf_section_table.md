@@ -129,11 +129,13 @@ typedef struct
   | 可重定位文件 | st_shndx != SHN_COMMON | 符号在**节中的偏移**，注意符号所在节由st_shndx确定 |
   | 共享库文件中 |                        | 符号的虚拟地址                                     |
 
-* st_info：符号的绑定类型（强符号、弱符号等）和属性（该符号表示一个对象、函数、文件）
+* st_info：符号的绑定类型（强符号、弱符号等）和属性（该符号表示一个对象、函数、文件），它的计算方式如下：
   
-  st_info的高4位包含符号的绑定信息，低4位表示符号的属性，关于st_info的解读可以参考[这里](https://docs.oracle.com/cd/E19253-01/819-7050/6n918j8np/index.html#chapter6-tbl-21)。
-
-
+  ```c
+  #define ELF64_ST_BIND(info)          ((info) >> 4) // 右移4位，即舍弃低4位，剩下的高28位表示符号绑定信息
+  #define ELF64_ST_TYPE(info)          ((info) & 0xf)// 相当于((info) & 0b1111),即只取低4位，表示符号类型
+  #define ELF64_ST_INFO(bind, type)    (((bind)<<4)+((type)&0xf))
+  ```
 
 关于符号表的一些文章可以看[这里](http://blog.k3170makan.com/2018/10/introduction-to-elf-format-part-vi.html)
 
