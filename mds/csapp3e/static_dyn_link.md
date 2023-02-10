@@ -173,13 +173,25 @@ Disassembly of section .text:
 
 
 
+用`readelf -r a.o`检查一下重定位表：
+
+```
+Relocation section '.rela.text' at offset 0x1f0 contains 6 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000000014  00090000001a R_RISCV_HI20      0000000000000000 shared + 0
+000000000014  000000000033 R_RISCV_RELAX                        0
+000000000018  00090000001b R_RISCV_LO12_I    0000000000000000 shared + 0
+000000000018  000000000033 R_RISCV_RELAX                        0
+00000000001e  000a00000012 R_RISCV_CALL      0000000000000000 swap + 0
+00000000001e  000000000033 R_RISCV_RELAX                        0
+
+```
+
+发现有`shared`有两个相关项，类型分别是`R_RISCV_HI20`和`R_RISCV_LO12_I`，它代表了`shared`的高20位和低12位都需要重定位。`swap`则更加不用说了，类型为`R_RISCV_CALL`，关于它的详细解读请参考[RISC-V ELF Specification](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-elf.adoc#risc-v-elf-specification)
 
 
 
-
-
-
-而经过链接之后则变成这样，链接过程
+而经过链接之后则变成这样，主要是对重定位表中的符号进行重定位。
 
 ```
    100fc:	67c5                	lui	a5,0x11	#计算shared地址的高20位，此时因为已经将b.o也合并进来，所以它是确定的
