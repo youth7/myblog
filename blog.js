@@ -68,7 +68,7 @@ async function watchDir() {
 
 function startServer() {
 	const server = http.createServer(getArticle);
-	server.listen(80);
+	server.listen(8888);
 }
 
 async function start() {
