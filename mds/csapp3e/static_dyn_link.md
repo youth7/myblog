@@ -26,11 +26,9 @@
 
 
 
-需要区分清楚编译（compile）、链接（link）、加载（load）这3个不同的概念，它们的关系如下：
+需要区分清楚编译（compile）、汇编、链接（link）、加载（load）这4个不同的概念，它们的关系如下：
 
 ![](/imgs/compile_link_load.jpg)
-
-
 
 链接的主要内容：
 
@@ -45,6 +43,56 @@
 
 
 需要注意的是，编译时编译器为程序分配的地址空间都是从0开始的，此时并**没有面向虚拟地址空间（运行在支持虚拟地址的OS上）或者物理内存地址空间（运行在裸机上）**。不同的编译套件会根据自身的编译目标（target triple）在**链接阶段重置代码的基地址**。重置基地址并不会进行符号解析和重定位（在动态链接的例子中会展示），符号解析和重定位会发生在最后。
+
+
+
+
+
+## 静态链接和动态链接的区别
+
+链接阶段最重要的内容是符号解析和重定位，静态链接会在生成可执行文件的时候完成链接阶段的全部内容，而动态链接则会把这两个工作中的部分内容（例如解析动态链接库中的符号并进行重定位）推迟到运行时。
+
+网上很多资料都说静态链接是*编译时*链接，其实这说话是不准确的。由上图可知编译包括：
+
+1. 源代码编译到汇编代码
+
+2. 汇编代码编译到目标文件
+
+所以编译和链接的工作内容是完全不同的，编译并没不包含链接。但上面的错误说法其实也是可以理解的，他将编译+链接流程划分来两个阶段：*编译时*和*运行时*，*编译时*包括编译和链接，*运行时*包括程序加载和运行。因此"静态链接是*编译时*链接"这句话主要指静态链接在**运行前就完成了符号解析和重定位的工作**
+
+[这个回答](https://stackoverflow.com/questions/311882/what-do-statically-linked-and-dynamically-linked-mean)中提到：
+
+> You can see in the static case that the main program and C runtime  library are **linked together at link time**(by the developers). Since the  user typically cannot re-link the executable, they're stuck with the  behaviour of the library.   
+
+> In the dynamic case, the main program is linked with the C runtime  import library (**something which declares what's in the dynamic library  but doesn't actually *define* it**). **This allows the linker to link even though the actual code is missing**.   
+
+> Then, at runtime, the operating system loader does a late linking of  the main program with the C runtime DLL (dynamic link library or shared  library or other nomenclature).    
+
+> The owner of the C runtime can drop in a new DLL at any time to  provide updates or bug fixes. As stated earlier, this has both  advantages and disadvantages.  
+
+```sql
+Phase     Static                    Dynamic
+--------  ----------------------    ------------------------
+          +---------+               +---------+
+          | main.c  |               | main.c  |
+          +---------+               +---------+
+Compile........|.........................|...................
+          +---------+ +---------+   +---------+ +--------+
+          | main.o  | | crtlib  |   | main.o  | | crtimp |
+          +---------+ +---------+   +---------+ +--------+
+Link...........|..........|..............|...........|.......
+               |          |              +-----------+(注意：这里crtimp没有像静态链接的crtlib那样完全打包进main中)
+               |          |              |
+          +---------+     |         +---------+ +--------+
+          |  main   |-----+         |  main   | | crtdll |
+          +---------+               +---------+ +--------+
+Load/Run.......|.........................|..........|........
+          +---------+               +---------+     |
+          | main in |               | main in |-----+
+          | memory  |               | memory  |
+```
+
+
 
 
 
@@ -258,17 +306,34 @@ gcc -fno-stack-protector -c a.c b.c
 ld a.o b.o -e main -o ab
 ```
 
-
-
-与动态链接相比，静态链接最大的特点是**链接时重定位**（动态链接是运行时重定位），而具体的重定位细节跟指令集相关，不必执着于地址的某些计算过程，只需知道链接器合理合并了所有目标文件并计算出最终地址，然后进行最后的重定位。
-
+TODO：分析上面的x86上的静态链接
 
 
 
+总结：
+
+与动态链接相比，静态链接最大的特点是**链接时重定位**（动态链接是运行时重定位），而具体的重定位细节跟平台的指令集相关，学习时不必执着于地址的某些计算过程，只需知道链接器合理合并了所有目标文件并确定最终地址，然后进行最后的重定位。
+
+静态链接的优点是生成的可执行文件能够独立执行，不需要额外的依赖，毕竟静态链接将所有第三方依赖都打包到可执行文件中了。但缺点也很明显：
+
+* 体积大
+* 浪费内存
+* 升级更新难
 
 
 
 ## 动态链接
+
+动态链接的出现是为了克服静态链接的一些缺点：
+
+* 空间浪费
+* 
+
+
+
+
+
+
 
 动态链接的思路是这样的：
 
