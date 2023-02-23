@@ -10,7 +10,7 @@
 
 * https://www.zhihu.com/question/36391193/answer/132979357
 
-关于JTAG各种Link（Ulink、Jlink以及ST-Link）的关系可以看[《JTAG、Ulink、Jlink以及ST-Link的区别》](https://zhuanlan.zhihu.com/p/362465210)，简而言之，各种link是一个仿真器（转换器），它的连接方式如下：
+关于JTAG各种Link（如Ulink、Jlink以及ST-Link）的关系可以看[《JTAG、Ulink、Jlink以及ST-Link的区别》](https://zhuanlan.zhihu.com/p/362465210)，简而言之，各种link是一个仿真器（转换器），它的连接方式如下：
 
 ![](/imgs/jtag.jpg)  
 
