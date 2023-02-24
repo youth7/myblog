@@ -101,7 +101,7 @@ SEGGER's Real Time Transfer (RTT) is the proven technology for system monitoring
 
 
 
-## 关于debug probe
+### 关于debug probe
 
 > We can describe debug probes as **hardware mediators between the host machine and the debug port of the target embedded system. The main task of any debug probe is to convert commands from the debugger into signals understandable to the target device**. Usually, debug probes are connected to the host via USB, but there are also more exotic variations with Ethernet or Wi-Fi connectivity allowing developers to debug devices even remotely from anywhere in the world.
 >

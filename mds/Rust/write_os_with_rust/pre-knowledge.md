@@ -12,11 +12,11 @@
 
 参考以下文章，特别是第一篇的前几章：
 
-1. [《The embedonomicon》学习笔记](../embedonomicon.md)
+1. [《The embedonomicon》学习笔记](../embed_with_rust//embedonomicon.md)
 
-2. [《discovery》学习笔记](../discovery.md)
+2. [《discovery》学习笔记](../embed_with_rust/discovery.md)
 
-3. [一些嵌入式基础概念](../embed_with_rust/basic-concept.md)
+3. [一些嵌入式基础技术](../embed_with_rust/basic-concept.md)
 
 
 # QEMU基础
