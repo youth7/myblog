@@ -126,11 +126,11 @@ void swap(int *a, int *b)
 
 其中编译环境信息为：
 
-* 操作系统：Ubuntu 20.04.4 LTS
+* 操作系统：Ubuntu 20.04.2 LTS
 
-* 编译工具：[riscv64-unknown-elf.gcc-12.1.0](https://github.com/stnolting/riscv-gcc-prebuilt/releases/download/rv64imc-3.0.0/riscv64-unknown-elf.gcc-12.1.0.tar.gz)
+* 编译套件：[riscv64-unknown-elf.gcc-12.1.0](https://github.com/stnolting/riscv-gcc-prebuilt/releases/download/rv64imc-3.0.0/riscv64-unknown-elf.gcc-12.1.0.tar.gz)
 
-使用该编译套件是因为RISCV历史包袱少，它的汇编代码比X86和ARM更加易懂。（关于编译套件命名规则可以参考[这里](http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter1/1app-ee-platform.html#id5)）
+使用该编译套件是因为RISCV历史包袱少，它的汇编代码比X86和ARM更加易懂，同时生成不依赖具体操作系统的ELF文件，减少不必要信息能够更好理解静态链接。（关于编译套件命名规则可以参考[这里](http://rcore-os.cn/rCore-Tutorial-Book-v3/chapter1/1app-ee-platform.html#id5)）
 
 
 
@@ -346,17 +346,70 @@ TODO：分析上面的x86上的静态链接
 
 > **注意：这种加载时重定位的方法会修改lib.so在物理内存中代码段中跟地址相关的数据。例如编译时因不知道func的地址会先生成`call 0x0000`这样的代码，0x0000是对func地址的留空。接着在重定位时将代码改为`call 0xFFFF`。如果不清楚这点是无法理解基址重置的缺陷的**）
 
-解决上述问题要用到地址无关代码（PIC：position-independent code），使得lib.so的代码不再跟具体的地址绑定。核心思想是将lib.so中可变部分（地址跳转中用到的绝对地址）和不变部分（.text节中的指令）分离开来。使得.text中不再含有地址信息，这样lib.so的代码在所有进程的地址空间中都以一致的方式存在，而地址相关部分则抽取到数据节（如xxx）中，这些数据节在每个进程的地址空间中都有副本，因进程而异。下面我们用具体代码来展示这个过程。
+解决上述问题要用到地址无关代码（PIC：position-independent code），**使得lib.so的代码不再跟具体的地址绑定。核心思想是将lib.so中可变部分（地址跳转中用到的绝对地址）和不变部分（.text节中的指令）分离开来。使得.text中不再含有地址信息，这样lib.so的代码在所有进程的地址空间中都以一致的方式存在，而地址相关部分则抽取到数据节（如.GOT）中，这些数据节在每个进程的地址空间中都有副本，因进程而异**。下面我们用具体代码来展示这个过程。
 
 
 
-### GOT和PLT
+### ELF中与动态链接相关的section
+
+关于GOT和PLT网上已经有相当多的资料，这里不再重复一些基础细节，只关注用实验验证动态链接中的一些关键之处。实验使用以下C语言代码：
+
+`main.c`
+
+```c
+#include<stdio.h>
+extern int fn1(void);
+int main(void)
+{
+    printf("%d\n", fn1());
+    return 0;
+}
+```
+
+`fn1.c`
+
+```c
+extern int fn2(void); 
+static int var_in_fn1 = 0xffff;
+int fn1(void)
+{
+    return fn2();
+}
+```
+
+`fn2.c`
+
+```c
+static int var_in_fn2 = 0xffff;
+int fn2(void)
+{
+    return var_in_fn2;
+}
+```
+
+
+
+
+
+实验方法是通过比较编译后和运行时程序GOT/PLT的变化来说明它们是如何实验动态链接的目标。
 
 
 
 
 
 
+
+```bash
+gcc -fPIC -shared fn2.c -o libfn2.so
+gcc -fPIC -shared fn1.c -o libfn1.so
+gcc main.c libfn1.so libfn2.so
+export LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH	#设置路径，以便运行时能够找到libfn1.so，否则会报错
+./a.out
+```
+
+
+
+#### RISC-V
 
 ## 参考
 
