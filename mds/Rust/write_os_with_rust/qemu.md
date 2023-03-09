@@ -19,6 +19,27 @@ QEMU的两种模式：
 
 
 
+## 在Ubuntu20.04.2上编译安装QEMU7.2.0
+
+按照官方的指引编译时报错了，根据错误信息还需要安装以下工具：
+
+```bash
+apt-get install libslirp-dev	#这个一定要在编译前就安装，并启用编译选项--enable-slirp，否则后面运行时候会出现错误：network backend 'user' is not compiled into this binary
+
+sudo apt install ninja-build #报错缺少ninja
+sudo apt-get install libglib2.0-dev	#报错：lib-2.56 gthread-2.0 is required to compile QEMU
+sudo apt install libpixman-1-dev	#报错：Dependency "pixman-1" not found, tried pkgconfig
+```
+
+```bash
+sudo ./configure --enable-slirp
+sudo make
+```
+
+
+
+
+
 ## [System Emulation](https://www.qemu.org/docs/master/system/index.html)
 ## [一些工具](https://www.qemu.org/docs/master/tools/index.html)
 ## [System Emulation的管理与交互](https://www.qemu.org/docs/master/interop/index.html)
