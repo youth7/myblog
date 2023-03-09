@@ -320,6 +320,8 @@ TODO：分析上面的x86上的静态链接
 
 ## 动态链接例子分析
 
+### 概述
+
 静态链接的优点是生成的可执行文件能够独立执行，不需要额外的依赖，毕竟静态链接将所有第三方依赖都打包到可执行文件中了。但缺点也很明显：
 
 * 体积大
@@ -336,11 +338,11 @@ TODO：分析上面的x86上的静态链接
 
 
 
-### PIC和基址重置
+### 实现思路：PIC和基址重置
 
 为了实现上述目标，lib.so中的代码（具体来说就是涉及地址访问的指令如地址跳转）必须做一些调整。因为lib.so是被多个进程共享的，所以可能被映射到不同的地址空间中。如果lib.so中的地址访问用到了绝对地址，则它无法被多个进程共享。
 
-例如，下图是Linux在X86_64架构上的进程内存布局（虚拟地址空间），在stack和heap中间的那个区域就是lib.so（共享对象）加载后所在之处。假设程序p1启动时加载lib.so并对其中某个函数func调用地址重定位为`0xFFFF`。这个地址空间对p1来说是合法的，然而如果另外一个也依赖lib.so的程序p2在稍后启动，则运行到调用函数func的时很有可能会报错，因为`0xFFFF`对p2来说大概率是个非法地址。
+例如，下图是Linux在X86_64架构上的进程内存布局（虚拟地址空间），在stack和heap中间的那个区域就是lib.so（共享对象）加载后所在之处。假设程序p1启动时加载lib.so并对其中某个函数func调用地址重定位为0xFFFF。这个地址空间对p1来说是合法的，然而如果另外一个也依赖lib.so的程序p2在稍后启动，则运行到调用函数func的时很有可能会报错，因为0xFFFF对p2来说大概率是个非法地址。
 
 ![](/imgs/addr_rebase_layout.jpg)
 
@@ -350,66 +352,201 @@ TODO：分析上面的x86上的静态链接
 
 
 
+### 实现技术：GOT/PLT
+
+关于GOT、PLT的介绍网上资料多如牛毛，这里不再重复，推荐参考以下文章：
+
+* Linux动态链接为什么要用PLT和GOT表？ - 海枫的回答 - 知乎 https://www.zhihu.com/question/21249496/answer/126600437。
+
+  这篇文章清晰描述了动态链接的两个阶段：**在链接阶段**，链接器收集相关符号信息之后生成地址无关的辅助代码；在**程序运行期**进行符号重定位。
+
+  >  **链接器生成一段额外的小代码片段，通过这段代码支获取printf函数地址，并完成对它的调用**。链接阶段发现printf定义在动态库时，链接器生成一段小代码print_stub，然后printf_stub地址取代原来的printf。因此转化为链接阶段对[printf_stub](https://www.zhihu.com/search?q=printf_stub&search_source=Entity&hybrid_search_source=Entity&hybrid_search_extra={"sourceType"%3A"answer"%2C"sourceId"%3A126600437})做链接重定位，而运行时才对printf做运行时重定位。
+
+
+
+
+
+
+
 ### ELF中与动态链接相关的section
 
-关于GOT和PLT网上已经有相当多的资料，这里不再重复一些基础细节，只关注用实验验证动态链接中的一些关键之处。实验使用以下C语言代码：
+接下来我们使用以下代码演示动态链接中的一些重要部分，实验在RISC-V64上的Ubuntu 22.04 LTS进行，如何在搭建这个平台请参考[这里](https://gitee.com/tinylab/riscv-lab)。
 
 `main.c`
 
 ```c
-#include<stdio.h>
-extern int fn1(void);
+extern int my_fn(void);
+static int main_local = 0x333;
 int main(void)
 {
-    printf("%d\n", fn1());
-    return 0;
+    return my_fn();
 }
 ```
 
-`fn1.c`
+`fn.c`
 
 ```c
-extern int fn2(void); 
-static int var_in_fn1 = 0xffff;
-int fn1(void)
+#include <unistd.h>
+#include <stdio.h>
+int global_var_in_fn = 0x66;
+static int local_var_in_fn = 0x77;
+int my_fn(void)
 {
-    return fn2();
+    printf("&global_var_in_fn = %p\n", &global_var_in_fn);
+    printf("&local_var_in_fn = %p\n", &local_var_in_fn);
+    sleep(1000);
+    return global_var_in_fn;
 }
 ```
 
-`fn2.c`
-
-```c
-static int var_in_fn2 = 0xffff;
-int fn2(void)
-{
-    return var_in_fn2;
-}
-```
-
-
-
-
-
-实验方法是通过比较编译后和运行时程序GOT/PLT的变化来说明它们是如何实验动态链接的目标。
-
-
-
-
-
-
+使用以下命令编译运行
 
 ```bash
-gcc -fPIC -shared fn2.c -o libfn2.so
-gcc -fPIC -shared fn1.c -o libfn1.so
-gcc main.c libfn1.so libfn2.so
-export LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH	#设置路径，以便运行时能够找到libfn1.so，否则会报错
+gcc -fPIC -shared fn.c -o libfn.so
+gcc -fPIC main.c libfn.so
+export LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH	#设置路径，以便运行时能够找到libfn.so，否则会报错
 ./a.out
 ```
 
 
 
-#### RISC-V
+#### .interp
+
+执行命令`objdump -s -j .interp  a.out`查看运行时负责初始化的动态链接器，它存在于`.interp`中
+
+```bash
+a.out:     file format elf64-littleriscv
+
+Contents of section .interp:
+ 0270 2f6c6962 2f6c642d 6c696e75 782d7269  /lib/ld-linux-ri
+ 0280 73637636 342d6c70 3634642e 736f2e31  scv64-lp64d.so.1
+ 0290 00
+```
+
+和x86平台不同，当前平台使用的是`/lib/ld-linux-riscv64-lp64d.so.1`。关于动态链接器的一些介绍可以看[这里](https://www.man7.org/linux/man-pages/man8/ld.so.8.html)
+
+#### .dynamic
+
+动态链接的所有信息的入口，用`readelf -d libfn.so`查看
+
+```bash
+Dynamic section at offset 0xe60 contains 22 entries:
+  Tag        Type                         Name/Value
+ 0x0000000000000001 (NEEDED)             Shared library: [libc.so.6]
+ 0x0000000000000019 (INIT_ARRAY)         0x1e50
+ 0x000000000000001b (INIT_ARRAYSZ)       8 (bytes)
+ 0x000000000000001a (FINI_ARRAY)         0x1e58
+ 0x000000000000001c (FINI_ARRAYSZ)       8 (bytes)
+ 0x000000006ffffef5 (GNU_HASH)           0x1f0
+ 0x0000000000000005 (STRTAB)             0x2f0
+ 0x0000000000000006 (SYMTAB)             0x218
+ 0x000000000000000a (STRSZ)              127 (bytes)
+ 0x000000000000000b (SYMENT)             24 (bytes)
+ 0x0000000000000003 (PLTGOT)             0x2010
+ 0x0000000000000002 (PLTRELSZ)           48 (bytes)
+ 0x0000000000000014 (PLTREL)             RELA
+ 0x0000000000000017 (JMPREL)             0x450
+ 0x0000000000000007 (RELA)               0x3a8
+ 0x0000000000000008 (RELASZ)             216 (bytes)
+ 0x0000000000000009 (RELAENT)            24 (bytes)
+ 0x000000006ffffffe (VERNEED)            0x388
+ 0x000000006fffffff (VERNEEDNUM)         1
+ 0x000000006ffffff0 (VERSYM)             0x370
+ 0x000000006ffffff9 (RELACOUNT)          3
+ 0x0000000000000000 (NULL)               0x0
+```
+
+每项的具体含义见[这里](https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dynamicsection.html)，其中需要留意的是以下几个，
+
+* `DT_JMPREL`：If present, this entry's d_ptr member holds the address of  relocation entries associated solely with the procedure linkage table. Separating these relocation entries lets the  runtime linker ignore them during process initialization, if lazy  binding is enabled. If this entry is present, the related entries of types `DT_PLTRELSZ` and `DT_PLTREL` must also be present.
+
+* `DT_PLTRELSZ`：This element holds the total size, in bytes, of the relocation entries  associated with the procedure linkage table. If an entry of type `DT_JMPREL` is present, a `DT_PLTRELSZ` must accompany it. 
+
+* `DT_PLTREL`：This member specifies the type of relocation entry to which the procedure linkage table refers. The d_val member holds `DT_REL` or `DT_RELA`, as appropriate. All relocations in a procedure linkage table must use the same relocation. 
+
+* `DT_RELA`：This element holds the address of a relocation table, described in  the first part of this chapter. Entries in the table have explicit addends, such as `Elf32_Rela` for the 32-bit file class, or `Elf64_Rela` for the 64-bit file class.
+
+  An object file can have multiple relocation sections. When building  the relocation table for an executable or shared object file, the  link-editor catenates those sections to form a single table. Although the sections remain independent in the object file, the runtime linker  sees a single table. When the runtime linker creates the process image  for an executable file or adds a shared object to the process image, it reads the relocation table and performs the associated  actions.
+
+  If this element is present, the dynamic structure must also have `DT_RELASZ` and `DT_RELAENT` elements. When relocation is **mandatory** for a file, either `DT_RELA` or `DT_REL` can occur (both are permitted but not required). 
+
+* `DT_REL`：This element is similar to `DT_RELA`, except its table has implicit addends, such as `Elf32_Rel` for the 32-bit file class. If this element is present, the dynamic structure must also have `DT_RELSZ` and `DT_RELENT` elements. 
+
+它是PLT的入口地址。奇怪的是LSB中并没有定义PLTGOT，但在Oracle的[文档](https://docs.oracle.com/cd/E19957-01/806-0641/chapter6-42444/index.html)中却有。
+
+#### 动态符号表（.dynsym）
+
+动态链接符号表，用` readelf -sD  libfn.so`查看
+
+```bash
+Symbol table for image contains 9 entries:
+   Num:    Value          Size Type    Bind   Vis      Ndx Name
+......
+     3: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND sleep@GLIBC_2.27 (2)
+     4: 0000000000000000     0 FUNC    GLOBAL DEFAULT  UND printf@GLIBC_2.27 (2)
+......
+     7: 000000000000054a    76 FUNC    GLOBAL DEFAULT   10 my_fn
+     8: 0000000000002008     4 OBJECT  GLOBAL DEFAULT   16 global_var_in_fn
+```
+
+可见fn.c中定义的两个符号（`my_fn`和`global_var_in_fn`）以及引用自外部的两个符号（`sleep`和`printf`）都出现了，但是外部符号的名称和代码中稍稍不一样。去GLIBC验证一下：`readelf -sD  /usr/lib/riscv64-linux-gnu/libc.so.6 | grep -E ' sleep| printf'`
+
+```bash
+  1547: 0000000000047a5a    84 FUNC    GLOBAL DEFAULT   12 printf@@GLIBC_2.27
+  2036: 0000000000091cd8   100 FUNC    WEAK   DEFAULT   12 sleep@@GLIBC_2.27
+```
+
+发现名称引用没有问题，确实是多了个后缀。
+
+
+
+#### 重定位表（`.rela.dyn`和`.rela.plt`）
+
+用`readelf -r  libfn.so`检查一下
+
+```bash
+Relocation section '.rela.dyn' at offset 0x3a8 contains 7 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+...
+000000002040  000800000002 R_RISCV_64        0000000000002008 global_var_in_fn + 0
+
+Relocation section '.rela.plt' at offset 0x450 contains 2 entries:
+  Offset          Info           Type           Sym. Value    Sym. Name + Addend
+000000002020  000300000005 R_RISCV_JUMP_SLOT 0000000000000000 sleep@GLIBC_2.27 + 0
+000000002028  000400000005 R_RISCV_JUMP_SLOT 0000000000000000 printf@GLIBC_2.27 + 0
+```
+
+`sleep`和`printf`需要重定位那是理所当然的，但`global_var_in_fn`是fn.c定义的全部变量，为何也出现在重定位表呢？个人猜测这是因为`global_var_in_fn`是一个全局变量，同时fn.c的代码是地址无关的。
+
+
+
+#### .plt
+
+
+
+### 分析
+
+具体要完成以下问题的分析，需要清晰的一个地方是不要纠结.plt节中具体的跳转过程，因为这是跟平台相关的。我们只关注以下问题：
+
+* PLT长什么样子
+  * ​	2，动态重定位表里元素的数量应该和plt表中元素的数量一致
+
+* GOT运行前的样子
+  * 动态重定位表的位置应该指向GOT
+
+* GOT运行后的样子
+
+* GOT是不是每个进程空间都独自一份
+
+
+
+
+
+ 
+
+
+
+
 
 ## 参考
 

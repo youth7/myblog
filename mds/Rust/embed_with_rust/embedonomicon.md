@@ -280,7 +280,11 @@ SECTIONS
 
 具体的值是根据LM3S6965的技术文档
 
-> 关于FLASH 、RAM、ROM的区别请看[这里](https://zhuanlan.zhihu.com/p/38339306)
+> 关于FLASH 、RAM、ROM的区别请看[这里](https://zhuanlan.zhihu.com/p/38339306)，简单来说就是：
+>
+> 非易失：ROM（不可擦除）->PROM（可编程）->EPROM（可擦除）->EEPROM（电可擦除）->FLASH EEPROM
+>
+> 易失：RAM
 
 ### [ENTRY](https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_chapter/ld_3.html#SEC24)
 
