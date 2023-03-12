@@ -458,21 +458,14 @@ Dynamic section at offset 0xe60 contains 22 entries:
 
 每项的具体含义见[这里](https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dynamicsection.html)，其中需要留意的是以下几个，
 
-* `DT_JMPREL`：If present, this entry's d_ptr member holds the address of  relocation entries associated solely with the procedure linkage table. Separating these relocation entries lets the  runtime linker ignore them during process initialization, if lazy  binding is enabled. If this entry is present, the related entries of types `DT_PLTRELSZ` and `DT_PLTREL` must also be present.
+* `DT_JMPREL`：指向与PLT表相关的 relocation entries。如果此项出现的话， `DT_PLTRELSZ` and `DT_PLTREL`也必须出现。
 
-* `DT_PLTRELSZ`：This element holds the total size, in bytes, of the relocation entries  associated with the procedure linkage table. If an entry of type `DT_JMPREL` is present, a `DT_PLTRELSZ` must accompany it. 
+* `DT_PLTRELSZ`：表明所有relocation entries的总大小。
 
-* `DT_PLTREL`：This member specifies the type of relocation entry to which the procedure linkage table refers. The d_val member holds `DT_REL` or `DT_RELA`, as appropriate. All relocations in a procedure linkage table must use the same relocation. 
-
-* `DT_RELA`：This element holds the address of a relocation table, described in  the first part of this chapter. Entries in the table have explicit addends, such as `Elf32_Rela` for the 32-bit file class, or `Elf64_Rela` for the 64-bit file class.
-
-  An object file can have multiple relocation sections. When building  the relocation table for an executable or shared object file, the  link-editor catenates those sections to form a single table. Although the sections remain independent in the object file, the runtime linker  sees a single table. When the runtime linker creates the process image  for an executable file or adds a shared object to the process image, it reads the relocation table and performs the associated  actions.
-
-  If this element is present, the dynamic structure must also have `DT_RELASZ` and `DT_RELAENT` elements. When relocation is **mandatory** for a file, either `DT_RELA` or `DT_REL` can occur (both are permitted but not required). 
-
-* `DT_REL`：This element is similar to `DT_RELA`, except its table has implicit addends, such as `Elf32_Rel` for the 32-bit file class. If this element is present, the dynamic structure must also have `DT_RELSZ` and `DT_RELENT` elements. 
-
-它是PLT的入口地址。奇怪的是LSB中并没有定义PLTGOT，但在Oracle的[文档](https://docs.oracle.com/cd/E19957-01/806-0641/chapter6-42444/index.html)中却有。
+* `DT_PLTREL`：`DT_JMPREL`所指向的relocation entries的类型（`DT_REL` 或 `DT_RELA`），所有relocation entries的类型都是相同的。
+* `DT_RELA`：重定位表的地址，重定位表中的每一项都附带有addends（用于地址修正）。如果此项出现的话，`DT_RELASZ` 和`DT_RELAENT` 也必须出现。
+  * `DT_REL` ：类似`DT_RELA`，但不附带addends
+  
 
 #### 动态符号表（.dynsym）
 
