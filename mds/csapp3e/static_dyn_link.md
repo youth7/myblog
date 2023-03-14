@@ -410,6 +410,20 @@ export LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH	#设置路径，以便运行时能够
 
 
 
+在继续下面的实验前我们需要注意，ELF规范1.2中写道：
+
+> The dynamic linking process resolves references either at process initialization time and/or at
+> execution time. Some basic mechanisms need to be set up for a particular linkage model to
+> work, and there are ELF sections and header elements reserved for this purpose. 
+>
+> **The actual definition of the linkage model is determined by the operating system and implementation.
+> Therefore, the contents of these sections are both operating system and processor specific. (See
+> the appendix at the end of Book III.)  **
+
+可知动态链接的模型和实现是和CPU架构以及操作系统相关的，因此我们不要拘泥于一重定位的细节，而是掌握它的核心思想。而碰到一些具体参数的时候，需要参考[RISCV专属的ELF规范](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-elf.adoc#risc-v-elf-specification)
+
+
+
 #### .interp
 
 执行命令`objdump -s -j .interp  a.out`查看运行时负责初始化的动态链接器，它存在于`.interp`中
@@ -456,16 +470,32 @@ Dynamic section at offset 0xe60 contains 22 entries:
  0x0000000000000000 (NULL)               0x0
 ```
 
-每项的具体含义见[这里](https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dynamicsection.html)，其中需要留意的是以下几个，
+每项的具体含义见[这里](https://refspecs.linuxbase.org/elf/gabi4+/ch5.dynamic.html)，以及ELF规范1.2，其中需要留意的是以下几个：
 
-* `DT_JMPREL`：指向与PLT表相关的 relocation entries。如果此项出现的话， `DT_PLTRELSZ` and `DT_PLTREL`也必须出现。
+* `DT_PLTGOT`：一个与PLT或者GOT相关地址，  在Intel架构中它指向了GOT的首元素。
+
+* `DT_JMPREL`：指向与PLT表相关的**relocation entries**。如果此项出现的话， `DT_PLTRELSZ` and `DT_PLTREL`也必须出现。
 
 * `DT_PLTRELSZ`：表明所有relocation entries的总大小。
 
 * `DT_PLTREL`：`DT_JMPREL`所指向的relocation entries的类型（`DT_REL` 或 `DT_RELA`），所有relocation entries的类型都是相同的。
-* `DT_RELA`：重定位表的地址，重定位表中的每一项都附带有addends（用于地址修正）。如果此项出现的话，`DT_RELASZ` 和`DT_RELAENT` 也必须出现。
+* `DT_RELA`：一个**relocation table **的地址，重定位表中的每一项都附带有addends（用于地址修正）。如果此项出现的话，`DT_RELASZ` 和`DT_RELAENT` 也必须出现。
   * `DT_REL` ：类似`DT_RELA`，但不附带addends
   
+
+
+
+所以`DT_JMPREL`和`DT_RELA`究竟有什么区别（**relocation entries** VS **relocation table**  ？）从上面的输出中我们看到`DT_JMPREL`和`DT_RELA`的值分别是0x450和0x3a8。非常巧合的是，这和动态链接的两个重定位表是一样的
+
+```bash
+readelf -S libfn.so  | grep rela
+  [ 7] .rela.dyn         RELA             00000000000003a8  000003a8
+  [ 8] .rela.plt         RELA             0000000000000450  00000450
+```
+
+所以我们可以推理`DT_JMPREL`和`DT_RELA`分别指向了`.rela.plt`和`.rela.plt`。
+
+
 
 #### 动态符号表（.dynsym）
 
@@ -513,7 +543,88 @@ Relocation section '.rela.plt' at offset 0x450 contains 2 entries:
 
 
 
-#### .plt
+#### `.plt`
+
+```bash
+readelf -S libfn.so
+...
+[ 9] .plt              PROGBITS         0000000000000480  00000480
+       0000000000000040  0000000000000010  AX       0     0     16
+..       
+```
+
+可知`。plt`在ELF中的偏移量是00000480，总大小是0x40，表中每一项的大小是0x10（注意第一项是例外，见下面）。看一下里面的具体内容
+
+```bash
+ubuntu@riscv-lab:/labs/riscv-lab$ objdump -d -j .plt  libfn.so
+
+libfn.so:     file format elf64-littleriscv
+
+
+Disassembly of section .plt:
+
+0000000000000480 <.plt>:
+ 480:	00002397          	auipc	t2,0x2
+ 484:	41c30333          	sub	t1,t1,t3
+ 488:	b903be03          	ld	t3,-1136(t2) # 2010 <__TMC_END__>
+ 48c:	fd430313          	addi	t1,t1,-44
+ 490:	b9038293          	addi	t0,t2,-1136
+ 494:	00135313          	srli	t1,t1,0x1
+ 498:	0082b283          	ld	t0,8(t0)
+ 49c:	000e0067          	jr	t3
+
+00000000000004a0 <sleep@plt>:
+ 4a0:	00002e17          	auipc	t3,0x2
+ 4a4:	b80e3e03          	ld	t3,-1152(t3) # 2020 <sleep@GLIBC_2.27>
+ 4a8:	000e0367          	jalr	t1,t3
+ 4ac:	00000013          	nop
+
+00000000000004b0 <printf@plt>:
+ 4b0:	00002e17          	auipc	t3,0x2
+ 4b4:	b78e3e03          	ld	t3,-1160(t3) # 2028 <printf@GLIBC_2.27>
+ 4b8:	000e0367          	jalr	t1,t3
+ 4bc:	00000013          	nop
+```
+
+这似乎很难懂，参考[RISCV专属的ELF规范](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-elf.adoc#risc-v-elf-specification)的相关章节：
+
+> The first entry of a shared object PLT is a special entry that calls `_dl_runtime_resolve` to resolve the GOT offset for the called function. ......The first entry in the PLT occupies **two 16 byte entries**:
+>
+> ```
+> 1:  auipc  t2, %pcrel_hi(.got.plt)
+>     sub    t1, t1, t3               # shifted .got.plt offset + hdr size + 12
+>     l[w|d] t3, %pcrel_lo(1b)(t2)    # _dl_runtime_resolve
+>     addi   t1, t1, -(hdr size + 12) # shifted .got.plt offset
+>     addi   t0, t2, %pcrel_lo(1b)    # &.got.plt
+>     srli   t1, t1, log2(16/PTRSIZE) # .got.plt offset
+>     l[w|d] t0, PTRSIZE(t0)          # link map
+>     jr     t3
+> ```
+>
+> Subsequent function entry stubs in the PLT take up **16 bytes** and load a function pointer from the GOT. **On the first call to a function, the entry redirects to the first PLT entry which calls `_dl_runtime_resolve` and fills in the GOT entry for subsequent calls to the function**:
+>
+> ```
+> 1:  auipc   t3, %pcrel_hi(function@.got.plt)
+>     l[w|d]  t3, %pcrel_lo(1b)(t3)
+>     jalr    t1, t3
+>     nop
+> ```
+
+可知`.plt`的第一项占用32个字节，它包含了一段能够初始化GOT的代码；剩余的每一项16字节，它包含了一些代码，这些代码会从GOT中获得一个函数指针（指向`.plt`的第一项），通过调用这个函数来初始化GOT。其实这就是网上广泛流传的关于PLT和GOT的协作过程，**唯一不同的是RISCV中`.plt`的结构与X86-64有较大差别**。
+
+`.got`
+
+> A global offset table's format and interpretation are processor-specific.  
+>
+> ...
+>
+> The actual contents and form of this table depend upon the processor
+
+先用objdump将.got打印出来
+
+然后对照其中内容，发现了里面存了.dynamc和.plt第一项的地址
+
+
 
 
 
