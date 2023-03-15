@@ -14,3 +14,5 @@
 ## [ELF和ELF头部](elf_file_header.md)
 ## [section header table（ELF的节表）](elf_section_table.md)
 
+## [RISC-V/Linux下的静态链接和动态链接](static_dyn_link.md)
+
