@@ -652,19 +652,16 @@ hexdump -x -s 0x00001010 -n 0x48 libfn.so
 
 
 
-### 分析
+### 运行时分析
 
-具体要完成以下问题的分析，需要清晰的一个地方是不要纠结.plt节中具体的跳转过程，因为这是跟平台相关的。我们只关注以下问题：
+上面已经从静态角度分析了动态链接的一些细节，但动态链接真正生效是在运行时，具体表现为以下两点：
 
-* PLT长什么样子
-  * ​	2，动态重定位表里元素的数量应该和plt表中元素的数量一致
+* GOT在运行时的初始化
+* GOT在各个进程的地址空间都是一个副本（这是实现IPC的关键）
 
-* GOT运行前的样子
-  * 动态重定位表的位置应该指向GOT
+我们用GDB来debug上述的两点
 
-* GOT运行后的样子
 
-* GOT是不是每个进程空间都独自一份
 
 
 
@@ -680,3 +677,4 @@ hexdump -x -s 0x00001010 -n 0x48 libfn.so
 
 * [Linking & Loading](https://www.cs.fsu.edu/~baker/opsys/notes/linking.html)
 * [Compiling and Linking](https://www.cprogramming.com/compilingandlinking.html)
+* [RISC-V ELF Specification](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-elf.adoc#global-offset-table)
