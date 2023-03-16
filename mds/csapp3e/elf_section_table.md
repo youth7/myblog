@@ -141,11 +141,32 @@ typedef struct
 
 ## 重定位节
 
-未完成
+见[RISC-V/Linux下的静态链接和动态链接](static_dyn_link.md)的相关章节，注意重定位节只是收集了模块内引用的外部符号及其细节。外部符号的真实地址是位于定义它们的外部模块中。
 
 ## 字符串节
 
 见[ELF和ELF头部](/csapp3e/elf_file_header.md)中的相关章节
+
+### `.BSS`和`.COMMON`
+
+`.bss`：更好地节省空间，因此将值为0的符号全部收录在此
+
+>首先，未初始化的静态变量以及初始化为0的全局或者静态变量在虚拟内存中的.bss段。
+>
+>其次，虚拟内存区域的内容和物理内存区域中的内容通过内存映射的方式进行关联，对于虚拟内存中的.bss区域中的内容规定映射到匿名文件处，运行的时候在内存分配这些变量，初始值为0
+
+
+
+`.common`：符号可能在多处有定义，但在目前这个阶段尚未确定，因此放在公共区留待稍后确定。
+
+> Commons only appear before the linking stage. Commons are what later  goes into the bss or data‚ but it's up to the linker to decide where it  goes. This allows you to have the same variable defined in different  compilation units. As far as I know this is mostly to allow some ancient header files that had `int foo;` in them instead of `extern int foo;`.
+
+|           | static变量 | 全局变量  |
+| --------- | ---------- | --------- |
+| 未初始化  | `.bss`     | `.common` |
+| 初始化为0 | `.bss`     | `.bss`    |
+
+
 
 # 一些特殊的节
 
