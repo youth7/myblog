@@ -530,8 +530,15 @@ Symbol table for image contains 9 entries:
 ```bash
 Relocation section '.rela.dyn' at offset 0x3a8 contains 7 entries:
   Offset          Info           Type           Sym. Value    Sym. Name + Addend
-...
+000000001e50  000000000003 R_RISCV_RELATIVE                     548 #指向.init_array
+000000001e58  000000000003 R_RISCV_RELATIVE                     50e #指向.fini_array
+000000002000  000000000003 R_RISCV_RELATIVE                     2000#指向.data
+000000002038  000200000002 R_RISCV_64        0000000000000000 _ITM_deregisterTM[...] + 0
 000000002040  000800000002 R_RISCV_64        0000000000002008 global_var_in_fn + 0
+000000002048  000500000002 R_RISCV_64        0000000000000000 __cxa_finalize@GLIBC_2.27 + 0
+000000002050  000600000002 R_RISCV_64        0000000000000000 _ITM_registerTMCl[...] + 0
+
+
 
 Relocation section '.rela.plt' at offset 0x450 contains 2 entries:
   Offset          Info           Type           Sym. Value    Sym. Name + Addend
@@ -540,6 +547,18 @@ Relocation section '.rela.plt' at offset 0x450 contains 2 entries:
 ```
 
 `sleep`和`printf`需要重定位那是理所当然的，但`global_var_in_fn`是fn.c定义的全部变量，为何也出现在重定位表呢？个人猜测这是因为`global_var_in_fn`是一个全局变量，同时fn.c的代码是地址无关的。
+
+ELF规范1.2中是这样定义的`Offset`的
+
+> This member gives the location at which to apply the relocation  action. Different object files have slightly different interpretations for this member.
+>
+> For a relocatable file, the value indicates a section offset. The  relocation section itself describes how to modify another section in the file. Relocation offsets designate a storage unit within the second section.
+>
+> For an executable or shared object, the value indicates the virtual  address of the storage unit affected by the relocation. This information makes the relocation entries more useful for the runtime linker.
+
+可知重定位表中的都是虚拟地址。而类型为`R_RISCV_64`或`R_RISCV_RELATIVE`6个地址，其范围是0x2020~0x2050，在下面关于`.got`的分析中我们可以看到它的虚拟地址范围是0x2010~0x2058，正好能够覆盖重定位表中那6个地址。
+
+
 
 
 
@@ -644,7 +663,7 @@ hexdump -x -s 0x00001010 -n 0x48 libfn.so
 
 从上可见：
 
-* 第1项：全部位都用1填充，在X85_64中这一项是预留的，用于保存`.dynamic`的地址，但RISCV中没有找到相关规范
+* 第1项：全部位都用1填充，在X86_64中这一项是预留的，用于保存`.dynamic`的地址，但RISCV中没有找到相关规范
 * 第2项：全部位用0填充，意义不明。猜测为了跟`.plt`的结构保持一致而故意填充0（`.plt`中第一项大小为常规项的2倍）
 * 第3~4项：值为0x480，这明显就是未初始化前的值，指向`.plt`。
 * 第5项：值为0x1e60，指向了`.dynamic`
