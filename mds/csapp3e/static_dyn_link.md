@@ -348,7 +348,7 @@ TODO：分析上面的x86上的静态链接
 
 > **注意：这种加载时重定位的方法会修改lib.so在物理内存中代码段中跟地址相关的数据。例如编译时因不知道func的地址会先生成`call 0x0000`这样的代码，0x0000是对func地址的留空。接着在重定位时将代码改为`call 0xFFFF`。如果不清楚这点是无法理解基址重置的缺陷的**）
 
-解决上述问题要用到地址无关代码（PIC：position-independent code），**使得lib.so的代码不再跟具体的地址绑定。核心思想是将lib.so中可变部分（地址跳转中用到的绝对地址）和不变部分（.text节中的指令）分离开来。使得.text中不再含有地址信息，这样lib.so的代码在所有进程的地址空间中都以一致的方式存在，而地址相关部分则抽取到数据节（如.GOT）中，这些数据节在每个进程的地址空间中都有副本，因进程而异**。下面我们用具体代码来展示这个过程。
+解决上述问题要用到地址无关代码（PIC：position-independent code），**使得lib.so的代码不再跟具体的地址绑定。核心思想是将lib.so中可变部分（地址跳转中用到的绝对地址）和不变部分（.text节中的指令）分离开来。使得.text中不再含有地址信息，这样lib.so的代码在所有进程的地址空间中都以一致的方式存在，而地址相关部分则抽取到数据节（如`.got`）中，这些数据节在每个进程的地址空间中都有副本，因进程而异**。下面我们用具体代码来展示这个过程。
 
 
 
@@ -361,6 +361,12 @@ TODO：分析上面的x86上的静态链接
   这篇文章清晰描述了动态链接的两个阶段：**在链接阶段**，链接器收集相关符号信息之后生成地址无关的辅助代码；在**程序运行期**进行符号重定位。
 
   >  **链接器生成一段额外的小代码片段，通过这段代码支获取printf函数地址，并完成对它的调用**。链接阶段发现printf定义在动态库时，链接器生成一段小代码print_stub，然后printf_stub地址取代原来的printf。因此转化为链接阶段对[printf_stub](https://www.zhihu.com/search?q=printf_stub&search_source=Entity&hybrid_search_source=Entity&hybrid_search_extra={"sourceType"%3A"answer"%2C"sourceId"%3A126600437})做链接重定位，而运行时才对printf做运行时重定位。
+
+
+
+大致的流程可以参考以下图片：
+
+![](/imgs/pltgot.png)							![](/imgs/pltgot3.png)
 
 
 
@@ -472,7 +478,7 @@ Dynamic section at offset 0xe60 contains 22 entries:
 
 每项的具体含义见[这里](https://refspecs.linuxbase.org/elf/gabi4+/ch5.dynamic.html)，以及ELF规范1.2，其中需要留意的是以下几个：
 
-* `DT_PLTGOT`：一个与PLT或者GOT相关地址，  在Intel架构中它指向了GOT的首元素。
+* `DT_PLTGOT`：一个与PLT或者GOT相关地址，  在Intel架构中它指向了GOT的首元素。而它的当前值是0x2010，通过查找section table得知这一项指向了`.got`。
 
 * `DT_JMPREL`：指向与PLT表相关的**relocation entries**。如果此项出现的话， `DT_PLTRELSZ` and `DT_PLTREL`也必须出现。
 
@@ -493,7 +499,7 @@ readelf -S libfn.so  | grep rela
   [ 8] .rela.plt         RELA             0000000000000450  00000450
 ```
 
-所以我们可以推理`DT_JMPREL`和`DT_RELA`分别指向了`.rela.plt`和`.rela.plt`。
+所以我们可以推理**`DT_JMPREL`和`DT_RELA`分别指向了`.rela.plt`和`.rela.dyn`**。
 
 
 
@@ -556,7 +562,7 @@ ELF规范1.2中是这样定义的`Offset`的
 >
 > For an executable or shared object, the value indicates the virtual  address of the storage unit affected by the relocation. This information makes the relocation entries more useful for the runtime linker.
 
-可知重定位表中的都是虚拟地址。而类型为`R_RISCV_64`或`R_RISCV_RELATIVE`6个地址，其范围是0x2020~0x2050，在下面关于`.got`的分析中我们可以看到它的虚拟地址范围是0x2010~0x2058，正好能够覆盖重定位表中那6个地址。
+可知**重定位表中的都是虚拟地址**。而类型为`R_RISCV_64`或`R_RISCV_RELATIVE`6个地址，其范围是0x2020~0x2050，在下面关于`.got`的分析中我们可以看到它的虚拟地址范围是0x2010~0x2058，正好能够覆盖重定位表中那6个地址。
 
 
 
@@ -629,7 +635,7 @@ Disassembly of section .plt:
 >     nop
 > ```
 
-可知`.plt`的第一项占用32个字节，它包含了一段能够初始化GOT的代码；剩余的每一项16字节，它包含了一些代码，这些代码会从GOT中获得一个函数指针（指向`.plt`的第一项），通过调用这个函数来初始化GOT。其实这就是网上广泛流传的关于PLT和GOT的协作过程，**唯一不同的是RISCV中`.plt`的结构与X86-64有较大差别。在X86-64中，.got的前三项分别是`.dynamic`节、link_map结构、`_dl_runtime_resolve` 的地址。而RISCV中除了第一项是调用`_dl_runtime_resolve` 的特殊项（占用的空间是常规项的2倍）外，其它都是常规的PLT项，**。
+可知`.plt`的第1项占用32个字节，它包含了一段能够初始化GOT的代码（简称其为`init`）；剩余的每一项16字节，它包含了一些代码，这些代码会从未初始化过的GOT中获得一个函数指针（指向`init`），通过`init`来初始化GOT。其实这就是网上广泛流传的关于PLT和GOT的协作过程，**唯一不同的是RISCV中`.plt`的结构与X86-64有较大差别。在X86-64中，.got的前三项分别是`.dynamic`节、link_map结构、`_dl_runtime_resolve` 的地址。而RISCV中除了第一项是调用`_dl_runtime_resolve` 的特殊项（占用的空间是常规项的2倍）外，其它都是常规的PLT项，**。
 
 #### `.got`
 
@@ -671,6 +677,25 @@ hexdump -x -s 0x00001010 -n 0x48 libfn.so
 
 
 
+至此，根据上面的分析可以画出下面的静态结构图：
+
+<!--
+
+图的结构至少包含以下信息
+
+* 整体结构，按照ELF的section table顺序展示
+* `.dynamic`中各个重要元素的指向：
+  * `DT_PLTGOT`：指向`.got`
+  * `DT_JMPREL`：指向`.rela.plt`
+  * ``DT_RELA`：指向`.rela.dyn`
+
+* `.plt`中各个元素：最重要是首项，用于初始化`.got`
+* `.got`中各个元素的指向：未初始化前都指向了`.plt`的首项
+
+-->
+
+
+
 ### 运行时分析
 
 上面已经从静态角度分析了动态链接的一些细节，但动态链接真正生效是在运行时，具体表现为以下两点：
@@ -678,7 +703,7 @@ hexdump -x -s 0x00001010 -n 0x48 libfn.so
 * GOT在运行时的初始化
 * GOT在各个进程的地址空间都是一个副本（这是实现IPC的关键）
 
-我们用GDB来debug上述的两点
+TODO：具体的debug过程
 
 
 
