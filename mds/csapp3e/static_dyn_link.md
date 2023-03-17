@@ -722,3 +722,4 @@ TODO：具体的debug过程
 * [Linking & Loading](https://www.cs.fsu.edu/~baker/opsys/notes/linking.html)
 * [Compiling and Linking](https://www.cprogramming.com/compilingandlinking.html)
 * [RISC-V ELF Specification](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-elf.adoc#global-offset-table)
+* [CSAPP](https://hansimov.gitbook.io/csapp/part2/ch07-linking/7.12-position-independent-code)
