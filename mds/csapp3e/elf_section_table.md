@@ -166,7 +166,7 @@ typedef struct
 | 未初始化  | `.bss`     | `.common` |
 | 初始化为0 | `.bss`     | `.bss`    |
 
-
+在linux上，当ELF被加载后`.bss`是每个进程私有的。又因为bss`被映射到匿名文件，而匿名文件是demand-zero page的，因此所有分配到`.bss`的变量默认值都是0。
 
 # 一些特殊的节
 
