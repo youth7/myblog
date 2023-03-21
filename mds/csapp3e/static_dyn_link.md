@@ -281,8 +281,10 @@ Symbol table '.symtab' contains 19 entries:
 
 关于RISC-V汇编代码的一些基础知识可以参考：
 
+* https://suda-morris.github.io/blog/cs/riscv.html
+
 * [RISC-V指令集讲解（5）条件和无条件跳转指令](https://zhuanlan.zhihu.com/p/394860078)
-* 《RISC-V手册》前三章
+* [《The RISC-V Reader: An Open Architecture Atlas》中文版](http://riscvbook.com/chinese/)前三章
 
 其中一些重要的点是：
 
@@ -330,13 +332,15 @@ TODO：分析上面的x86上的静态链接
 
 动态链接的出现就是为了克服上述问题。它的做法是不在链接时将依赖的目标文件（为了叙述方便下面称其为lib.so）打包到可执行文件中，而是将lib.so加载到内存中（只有一份），当程序运行时用到lib.so中的对象，直接去内存中对应的地址读取即可，这种做法解决了上述的3个问题。
 
-> lib.so被加载到多个进程的虚拟地址空间中，这样不就加载了多次吗，为何说它只有一份呢？事实上操作系统确实只加载了一份lib.so到物理内存，然后将lib.so映射到不同进程的虚拟地址空间中来实现共享。具体的过程可以参考：[动态链接器如何判断某个共享库已经加载进内存? - ruanyuanyu的回答 - 知乎](https://www.zhihu.com/question/270473854/answer/354570620)
+> lib.so被加载到多个进程的虚拟地址空间中，这样不就加载了多次吗，为何说它只有一份呢？事实上操作系统确实只加载了一份lib.so到物理内存，然后将lib.so映射到不同进程的虚拟地址空间中来实现共享。具体的过程可以参考：[动态链接器如何判断某个共享库已经加载进内存? - ruanyuanyu的回答 - 知乎](https://www.zhihu.com/question/270473854/answer/354570620)。这个过程在[CSAPP](https://hansimov.gitbook.io/csapp/part2/ch09-virtual-memory/9.8-memory-mapping)中也写得非常清晰：
 
 
 
 因为lib.so在链接时不会被打包到可执行文件中，因此可执行文件对lib.so中各种符号的地址一无所知，只能在运行时等动态链接器把lib.so加载到进程的虚拟地址空间后，才能确定各个符号的值，进而访问lib.so中的各种对象。
 
-
+> linux上*`共享对象（shared object）`*这个名词的起因或者可以看[这里](https://hansimov.gitbook.io/csapp/part2/ch09-virtual-memory/9.8-memory-mapping)：
+>
+> *一个对象可以被映射到虚拟内存的一个区域，要么作为共享对象，要么作为私有对象。*
 
 ### 实现思路：PIC和基址重置
 
