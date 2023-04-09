@@ -14,9 +14,7 @@ Rust中的引用和C中的有明显不同的地方，理解引用应该包含以
 * 当deref的时候，尝试无数次，例如：`(&&String -> &String -> String -> str)`,此时遵循的规范是实现trait`Deref<Target = U>`
 * 当reference的时候，最多尝试一次，例如：`(str -> &str)`
 
->this answer seems exhaustive and detailed but I
- think it lacks a short and accessible summery of the rules. One such 
-summery is given in this comment by Shepmaster: "It [the deref algorithm] will deref as many times as possible (&&String -> &String -> String -> str) and then reference at max once (str -> &str)"
+>this answer seems exhaustive and detailed but I think it lacks a short and accessible summery of the rules. One such summery is given in this comment by Shepmaster: "It [the deref algorithm] will deref as many times as possible (&&String -> &String -> String -> str) and then reference at max once (str -> &str)"
 
 
 
