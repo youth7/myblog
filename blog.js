@@ -67,8 +67,11 @@ async function watchDir() {
 }
 
 function startServer() {
+	const port = 8888;
 	const server = http.createServer(getArticle);
-	server.listen(8888);
+	server.listen(port, ()=>{
+		console.log("服务器启动，监听端口", port);
+	});
 }
 
 async function start() {
