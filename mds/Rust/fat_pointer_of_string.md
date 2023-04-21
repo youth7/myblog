@@ -1,4 +1,4 @@
-众所周知Rust的胖指针由[三部分构成](https://zhuanlan.zhihu.com/p/103847632)，但是没有亲自写程序验证过心里还是没底，以下程序就是用类C的方式验证了胖指针的构成
+众所周知Rust的胖指针由[三部分构成](https://zhuanlan.zhihu.com/p/103847632)（其实也不一定？因为胖指针语义上是owner，实现上是结构体，因此具体的胖指针内存布局跟数据结构相关），但是没有亲自写程序验证过心里还是没底，以下程序就是用类C的方式验证了胖指针的构成
 
 ```rust
 // 将指针的值增加一定的值，使其指向不同的内存地址
@@ -39,3 +39,7 @@ fn main() {
     }
 }
 ```
+
+参考：
+
+* [Exploring Rust fat pointers](https://iandouglasscott.com/2018/05/28/exploring-rust-fat-pointers/)
