@@ -34,27 +34,31 @@
 
 ## 所有权
 
-* 要注意区分引用和借用的关系，官方文档中有：
+1. 关于所有权的一些要点：
 
-> We call the action of creating a reference *borrowing*
+   * **分清楚owner/value/reference/borrow，见下面*值的创建*相关讨论，这是重中之重**
 
-* Rust函数调用的时候**所有权会转移，例如`func(var)`并不会自动自动转为`func(&var)`并造成所有权转移**。
-* 分清楚owner/value/reference/borrow，见下面*值的创建*相关讨论
+   * 要注意区分引用和借用的关系，官方文档中有：
+
+     > We call the action of creating a reference *borrowing*
+
+   * Rust函数调用的时候**所有权会转移，例如`func(var)`并不会自动自动转为`func(&var)`并造成所有权转移**。
+
+   * 所有权检查分为静态动态两种，静态即编译时检查。动态即以`Rc` /`ARC` /`Cell`/ `RefCell`为代表的一系列智能指针在运行时检查是否满足所有权的3条规则。
 
 
 
-通过所有所有权机制进行内存管理，解决了以下问题：
+2. 通过所有所有权机制进行内存管理，解决了以下问题：
 
-* 资源自动释放，**它使得在一般情况下，堆上和栈上数据的生命周期一致了**
-* 防止数据被意外修改，同一时刻，一个值只有1个可变引用或者多个不可变引用
+   * 资源自动释放，**它使得在一般情况下，堆上和栈上数据的生命周期一致了**
+
+   * 防止数据被意外修改，同一时刻，一个值只有1个可变引用或者多个不可变引用
 
 > 所有权规则（编译时检查）：
 >
 > - Each value in Rust has an *owner*.
 > - There can only be one owner at a time.
 > - When the owner goes out of scope, the value will be dropped.
-
-
 
 
 
