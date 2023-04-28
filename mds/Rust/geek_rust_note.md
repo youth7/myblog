@@ -44,8 +44,6 @@
 
    * Rust函数调用的时候**所有权会转移，例如`func(var)`并不会自动自动转为`func(&var)`并造成所有权转移**。
 
-   * 所有权检查分为静态动态两种，静态即编译时检查。动态即以`Rc` /`ARC` /`Cell`/ `RefCell`为代表的一系列智能指针在运行时检查是否满足所有权的3条规则。
-
 
 
 2. 通过所有所有权机制进行内存管理，解决了以下问题：
@@ -54,13 +52,22 @@
 
    * 防止数据被意外修改，同一时刻，一个值只有1个可变引用或者多个不可变引用
 
-> 所有权规则（编译时检查）：
->
-> - Each value in Rust has an *owner*.
-> - There can only be one owner at a time.
-> - When the owner goes out of scope, the value will be dropped.
+    > 所有权规则（编译时检查）：
+    >
+    > - Each value in Rust has an *owner*.
+    > - There can only be one owner at a time.
+    > - When the owner goes out of scope, the value will be dropped.
 
 
+
+3. `Rc/Arc`提供了共享所有权（所有权规则的一个例外？），`Cell/RefCell`提供了内部可变性。这意味着除了`Rc/Arc`，其它标准库的数据对象都满足所有权规则。
+
+   |            | 语法                | 所有权检查（3条规则）  |
+   | ---------- | ------------------- | ---------------------- |
+   | 外部可变性 | `let mut`或者`&mut` | 编译时检查（静态检查） |
+   | 内部可变性 | 使用`Cell/RefCell`  | 运行时检查（动态检查） |
+
+   
 
 
 
@@ -70,9 +77,20 @@
 
 * 生命周期的作用：防止读取到内存中的无效单元
 
+* 生命周期中最难以理解的一些误解
+  * `T: 'static` vs `&'static T`，关于它的解释见参考资料。简单来说，前者的`T`包括了引用类型和所有权类型，反正**禁止含有非`'static`生命周期的引用**，因为当`T`为非`'static`引用的时候可能不能满足一些使用场景（例如跨线程），见参考4。
+
+
 ![](/imgs/rust_lifetimes.jpg)
 
 
+
+参考：
+
+* [Why does the compiler tell me to consider using a `let` binding" when I already am?](https://stackoverflow.com/questions/28893183/why-does-the-compiler-tell-me-to-consider-using-a-let-binding-when-i-already)
+* [Rust 中常见的有关生命周期的误解](https://github.com/pretzelhammer/rust-blog/blob/master/posts/translations/zh-hans/common-rust-lifetime-misconceptions.md)
+* https://practice.rs/lifetime/static.html
+* [Learning Rust: static trait bounds](https://codeandbitters.com/static-trait-bound/)
 
 ## 内存管理
 
@@ -85,13 +103,13 @@
   let rs = &s;// rs的类型&String，它是一个引用，在语义上来讲是borrow
   ```
 
-  | 对象                 | 语义   | 类型/分配                                |
-  | -------------------- | ------ | ---------------------------------------- |
-  | `s`                  | owner  | `String`这个结构体（胖指针），分配在栈上 |
-  | `&s`                 | borrow | 是一个`&String`（非胖指针），分配在栈上  |
-  | `String::from("hi")` | value  | 分配在堆上的二进制数据                   |
+  | 对象                 | 语义              | 类型/分配                                |
+  | -------------------- | ----------------- | ---------------------------------------- |
+  | `s`                  | owner，所有权类型 | `String`这个结构体（胖指针），分配在栈上 |
+  | `&s`                 | borrow，引用类型  | 是一个`&String`（非胖指针），分配在栈上  |
+  | `String::from("hi")` | value             | 分配在堆上的二进制数据                   |
 
-  
+  关于胖指针可以参考[Exploring Rust fat pointers](https://iandouglasscott.com/2018/05/28/exploring-rust-fat-pointers/)
 
 * `Option`、`Result`对引用类数据的优化
 
@@ -101,9 +119,84 @@
 
 * `RAII`
 
-  
+| 检查时机 | 编译时         | 运行时             |
+| -------- | -------------- | ------------------ |
+| 检查效果 | 高效、但不灵活 | 灵活、但有额外负担 |
+| 检查位置 | 栈             | 堆                 |
+| 检查机制 | borrow checker | 引用计数           |
+
+
 
 ## 类型系统
+
+trait的作用：
+
+* 行为抽象：
+* 泛型约束：trait bound
+* 抽象类型：trait object
+* 标签trait：
+
+
+
+多态：在使用相同的接口时，不同类型的对象，会采用不同的实现  
+
+| 多态类型              | 实现技术     | 备注                                            |
+| --------------------- | ------------ | ----------------------------------------------- |
+| 参数多态              | 泛型         | 包含泛型数据结构和泛型函数                      |
+| adhoc多态（特设多态） | trait        | 指同一种行为有很多不同的实现（正是trait的用途） |
+| 子类型多态            | trait object |                                                 |
+
+
+
+### 参数多态（泛型）
+
+* 注意**泛型**和**泛型约束**是不一样的，可以随便使用一个符号代表泛型，但是**泛型约束必须是trait**
+* 在泛型函数的参数中，有若干种表示方式：
+  * 直接使用泛型
+  * `impl Trait`，静态分派，
+  * `&dyn Trait`是动态分派，trait早期意思有点模糊，具有trait和type双重含义，具体看[这里](https://stackoverflow.com/questions/50650070/what-does-dyn-mean-in-a-type)
+
+例子：
+
+```rust
+fn test<T1>(   //另外一个泛型参数
+    a: &dyn T, //trait object，动态分派
+    e: impl T, //静态分派，编译时最终会有确定的类型
+    d: T1,     //即impl T vs 普通泛型，见第2条参考
+    b: Bar,    //注意：这是一个struct
+    c: &Bar,   //注意：这是一个struct的引用
+) {
+}
+```
+
+
+
+
+
+泛型单态化的优缺点：
+
+* 优点：
+  * 高效，没有运行时代价
+* 缺点：
+  * 编译速度慢
+  * 编译结果体积大
+  * 以二进制发布的话会丢失泛型信息
+
+
+
+参考：
+
+https://www.ncameron.org/blog/dyn-trait-and-impl-trait-in-rust/
+
+https://doc.rust-lang.org/reference/types/impl-trait.html
+
+
+
+### adhoc多态（特设多态）
+
+### 子类型多态
+
+
 
 ## 数据结构
 

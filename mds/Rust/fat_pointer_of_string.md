@@ -40,6 +40,53 @@ fn main() {
 }
 ```
 
+
+
+```rust
+
+use std::cell::{Cell, RefCell};
+use std::rc::Rc;
+
+fn func() {
+    let start = 123;
+
+    let end = 444;
+
+    println!("{:p} {:p} {:p}", &start, &end, &start);
+}
+fn main() {
+    let start = 123;
+    let s: String = "dd".to_string();//此时String这个胖指针一般是在栈上的
+    // let s2 = "aa".to_string();
+    // println!(" {:p}\n {:p}\n", &s, &s2);
+    let b = Box::new("cc".to_string());//此时String这个胖指针也被放在了堆上
+
+    let end = 444;
+    println!(" {:p}---------- ", &start);
+    println!(" {:p}\n {:p}", &s, &(*b));
+    println!(" {:p}---------- ", &end);
+
+    let c = Cell::new("dddxx".to_string());
+    let cc = c.take();
+    println!("{}", cc);
+
+    let mut c = RefCell::new("dddxx".to_string());
+    let cc = c.borrow();
+    println!("{}", cc);
+    // func();
+    // unsafe{
+    //     use std::mem::transmute;
+    //     println!("{:?}", transmute::<_, (usize, usize, usize)>(s));
+    //     // println!("{:?}", transmute::<_, (usize, usize, usize)>(*b));
+    //     // println!("{:?}", transmute::<_, (usize, usize, usize)>(b.take()));
+    // }
+}
+```
+
+
+
+
+
 参考：
 
 * [Exploring Rust fat pointers](https://iandouglasscott.com/2018/05/28/exploring-rust-fat-pointers/)
