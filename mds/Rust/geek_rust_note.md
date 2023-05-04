@@ -78,7 +78,7 @@
 * 生命周期的作用：防止读取到内存中的无效单元
 
 * 生命周期中最难以理解的一些误解
-  * `T: 'static` vs `&'static T`，关于它的解释见参考资料。简单来说，前者的`T`包括了引用类型和所有权类型，反正**禁止含有非`'static`生命周期的引用**，因为当`T`为非`'static`引用的时候可能不能满足一些使用场景（例如跨线程），见参考4。
+  * `T: 'static` vs `&'static T`，关于它的解释见参考资料。简单来说，前者的`T`**包括了后者（即`&'static T`）和所有权类型**，反正**禁止涉及非`'static`生命周期的引用**，因为当`T`为非`'static`引用的时候可能不能满足一些使用场景（例如跨线程），见参考4。
 
 
 ![](/imgs/rust_lifetimes.jpg)
@@ -129,14 +129,14 @@
 
 ## 类型系统
 
+### trait的概括
+
 trait的作用：
 
 * 行为抽象：
 * 泛型约束：trait bound
 * 抽象类型：trait object
 * 标签trait：
-
-
 
 多态：在使用相同的接口时，不同类型的对象，会采用不同的实现  
 
@@ -148,18 +148,36 @@ trait的作用：
 
 
 
+### 普通泛型、`impl Trait` 和`dyn Trait`
+
+* trait不是类型，类型是值的集合，而trait只能用来限制类型。例如我们不能写`x: Trait`而只能`<X: Trait>`，在后者中`Trait`对类型`X`做了一些限定，但**`Trait`并不是类型**。这种方式和`impl Trait`容易令人产生trait是类型的错觉。
+* `impl Trait`和普通泛型`<X: Trait>`基本一样，都可用于函数的参数/返回值。但用于返回值时有细微区别：
+  * `<X: Trait>`的**返回值是泛型**。caller在调用的时候确定返回值的具体类型（这也符号泛型的使用场景，开发者定义泛型，调用者确定泛型）
+  * `impl Trait`的**返回值是具体类型**。callee在编译期（通过智能推断）确定返回值的具体类型，但是caller不知道这个类型，**只知道返回值实现了某个trait**。
+  * `impl Trait`作为函数参数时会被单态化（因为是泛型），作为返回值时不需要（因为不是泛型）。
+* `impl Trait`和`<X: Trait>`编译后单态化，`dyn Trait`不需要单态化，因为`dyn Trait`**不是泛型而是具体类型**。
+
+|                            | 普通泛型    | `impl Trait` | `dyn Trait` |
+| -------------------------- | ----------- | ------------ | ----------- |
+| 是否泛型（作为数据结构）   | ✔️（单态化） | 🚫            | ❌           |
+| 是否泛型（作为函数参数）   | ✔️（单态化） | ✔️（单态化）  | ❌           |
+| 是否泛型（作为函数返回值） | ✔️（单态化） | ❌            | ❌           |
+
+
+
+
+
+
+
 ### 参数多态（泛型）
 
 * 注意**泛型**和**泛型约束**是不一样的，可以随便使用一个符号代表泛型，但是**泛型约束必须是trait**
-* 在泛型函数的参数中，有若干种表示方式：
-  * 直接使用泛型
-  * `impl Trait`，静态分派，
-  * `&dyn Trait`是动态分派，trait早期意思有点模糊，具有trait和type双重含义，具体看[这里](https://stackoverflow.com/questions/50650070/what-does-dyn-mean-in-a-type)
+* trait早期意思有点模糊，具有trait和type双重含义，具体看[这里](https://stackoverflow.com/questions/50650070/what-does-dyn-mean-in-a-type)
 
 例子：
 
 ```rust
-fn test<T1>(   //另外一个泛型参数
+fn test<T1>(   //T1是一个泛型参数
     a: &dyn T, //trait object，动态分派
     e: impl T, //静态分派，编译时最终会有确定的类型
     d: T1,     //即impl T vs 普通泛型，见第2条参考
@@ -171,30 +189,63 @@ fn test<T1>(   //另外一个泛型参数
 
 
 
-
-
 泛型单态化的优缺点：
 
-* 优点：
-  * 高效，没有运行时代价
-* 缺点：
-  * 编译速度慢
-  * 编译结果体积大
-  * 以二进制发布的话会丢失泛型信息
+* 优点：高效，没有运行时代价
+* 缺点：编译速度慢、编译结果体积大、以二进制发布的话会丢失泛型信息
 
 
 
 参考：
 
-https://www.ncameron.org/blog/dyn-trait-and-impl-trait-in-rust/
+* https://www.ncameron.org/blog/dyn-trait-and-impl-trait-in-rust/
 
-https://doc.rust-lang.org/reference/types/impl-trait.html
+* https://doc.rust-lang.org/reference/types/impl-trait.html
 
 
 
 ### adhoc多态（特设多态）
 
+只有一个难点，即：泛型vs关联类型，详情见参考。
+
+>### 共性
+>
+>泛型和关联类型最重要的一点是都允许你延迟决定trait类型到实现阶段。即使二者语法不同，关联类型总是可以用泛型来替代实现，但反之则不一定。[RFC](https://github.com/rust-lang/rfcs/blob/master/text/0195-associated-items.md)中有个说明："关联类型不会增加trait本身的表现力，因为你总是可以对trait增加额外的类型参数来达到同样目的"。但是，关联类型可以提供其他的好处。
+>
+>既然关联类型总是可以被泛型来替代实现，那关联类型存在的意义是什么？
+>
+>我们会解释下二者的不同，以及怎么选择。
+>
+>### 不同之处
+>
+>我们已经看到，泛型和关联类型在很多使用场合是重叠的，但是选择使用泛型还是关联类型是有原因的。
+>
+>泛型允许你实现数量众多的具体traits(通过改变T来支持不同类型)，例如之前提到过的From<T> trait，我们可以实现任意数量类型。
+>
+>举例来看，假设你有一个类型定义：MyNumeric。你可以在此类型上实现 From<u8>, From<u16>, From<u32>等多种数据转换。这使得泛型在处理仅是类型参数不同的trait时特别有用。
+>
+>**关联类型**，从另一方面来说，仅允许 **单个实现**，因为一个类型仅能实现一个trait一次，这可以用来限制实现的数量。
+>
+>[Deref trait](https://doc.rust-lang.org/std/ops/trait.Deref.html)有一个关联类型：Target，用于解引用到目标类型。如果可以解引用到多个不同类型，会使人相当迷惑（对编译类型推导也很不友好）。
+>
+>因为一个trait仅能被类型实现一次，关联类型带来了表达上的优势。使用关联类型意味着你不必对所有额外类型增加类型标注，这可以被认为是一个工程优势，具体见：[RFC](https://github.com/rust-lang/rfcs/blob/master/text/0195-associated-items.md).
+
+
+
+参考：
+
+* https://rustcc.cn/article?id=fb4e1512-ca7a-4dfe-9c87-3c98e800ac23
+
+
+
 ### 子类型多态
+
+todo：vtable的解析
+
+参考：
+
+* https://stackoverflow.com/questions/73084234/how-get-pointer-to-virtual-table-from-boxtrait
+* [dyn trait的内存布局](https://cheats.rs/#pointer-meta)
 
 
 
