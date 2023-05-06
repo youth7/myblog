@@ -103,13 +103,13 @@
   let rs = &s;// rs的类型&String，它是一个引用，在语义上来讲是borrow
   ```
 
-  | 对象                 | 语义              | 类型/分配                                |
-  | -------------------- | ----------------- | ---------------------------------------- |
-  | `s`                  | owner，所有权类型 | `String`这个结构体（胖指针），分配在栈上 |
-  | `&s`                 | borrow，引用类型  | 是一个`&String`（非胖指针），分配在栈上  |
-  | `String::from("hi")` | value             | 分配在堆上的二进制数据                   |
+  | 对象                 | 语义              | 类型/分配                                         |
+  | -------------------- | ----------------- | ------------------------------------------------- |
+  | `s`                  | owner，所有权类型 | `String`这个结构体（智能指针），分配在栈上        |
+  | `&s`                 | borrow，引用类型  | 是一个`&String`（普通引用，非胖指针），分配在栈上 |
+  | `String::from("hi")` | value             | 分配在堆上的二进制数据                            |
 
-  关于胖指针可以参考[Exploring Rust fat pointers](https://iandouglasscott.com/2018/05/28/exploring-rust-fat-pointers/)
+  关于胖指针可以参考[Exploring Rust fat pointers](https://iandouglasscott.com/2018/05/28/exploring-rust-fat-pointers/)和https://doc.rust-lang.org/book/ch15-00-smart-pointers.html，其中官方文档中有一句：*in many cases, smart pointers own the data they point to.*
 
 * `Option`、`Result`对引用类数据的优化
 
@@ -247,9 +247,9 @@ todo：vtable的解析
 * https://stackoverflow.com/questions/73084234/how-get-pointer-to-virtual-table-from-boxtrait
 * [dyn trait的内存布局](https://cheats.rs/#pointer-meta)
 
-
-
 ## 数据结构
+
+
 
 ## 错误处理
 
