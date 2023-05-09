@@ -249,6 +249,54 @@ todo：vtable的解析
 
 ## 数据结构
 
+[`Borrow<T>`](https://doc.rust-lang.org/std/borrow/trait.Borrow.html#)的作用就是借用，要点：
+
+* 和[`AsRef<T>`](https://doc.rust-lang.org/std/convert/trait.AsRef.html) 一样，本质上是从将当前类型借用为另外一种类型，但有一些小差异：
+
+  * `Borrow` **has a blanket impl for any `T`**, and can be used to accept **either a reference or a value**.
+  * `Borrow` also requires that [`Hash`](https://doc.rust-lang.org/std/hash/trait.Hash.html), [`Eq`](https://doc.rust-lang.org/std/cmp/trait.Eq.html) and [`Ord`](https://doc.rust-lang.org/std/cmp/trait.Ord.html) for a **borrowed value are equivalent to those of the owned value**. For this reason, if you want to borrow only a single field of a struct（这里意思是指将整个struct借用为其中某个field？） you can implement `AsRef`, but not [`Borrow`](https://doc.rust-lang.org/std/borrow/trait.Borrow.html).
+
+* `Borrow`有这两个实现：`impl<T> Borrow<T> for &T`和`impl<T> Borrow<T> for &T`，这会导致以下语义：
+
+  ```rust
+  fn main() {
+      let s = String::from("value");
+      let s1: &String = s.borrow();    //impl<T> Borrow<T> for T的原因
+      let s2: &String = (&s).borrow(); //impl<T> Borrow<T> for &T的原因。语义：对于类型T,可以从T的value或reference中借用
+      let s3: &str = s.borrow();       //impl Borrow<str> for String
+      let s4: &str = (&s).borrow();    //先转为s2的类型&String，然后String再deref到str，最终得到&str
+      let s4 = s.borrow(); //会报错，因为impl<T> Borrow<T> for T和impl Borrow<str> for String导致无法推断出最终类型
+  }
+  ```
+
+
+
+[ToOwned](https://doc.rust-lang.org/std/borrow/trait.ToOwned.html#)的作用就就是克隆（**注意不是转移所有权，别被名字误导！**），与`Clone`不同的是：
+
+* `Clone`是`&T`到到`T`
+* `ToOwned`是从`&T`到`Borrow<T>`，即克隆之后以任意类型的方式返回值，只要这个类型实现了`Borrow<Self>`（即可以从中重新得到`Self`的引用）。
+* 因为上面的原因，**`ToOwned`必定关联一个`Borrow<Self>`**
+
+
+
+[Cow<'a, B>](https://doc.rust-lang.org/std/borrow/enum.Cow.html#)要点：
+
+```rust
+pub enum Cow<'a, B>where
+    B: 'a + ToOwned + ?Sized,{
+    Borrowed(&'a B),
+    Owned(<B as ToOwned>::Owned),
+}
+```
+
+1. **语义：对数据类型`B`进行copy on write**，没修改的时候用`&'a B`，修改后用`<B as ToOwned>::Owned`。
+
+2. `B`必须是`ToOwned`，意味着它能够被克隆
+
+3. 注意这是一个enum，`Borrowed`和`Owned`**都是该enum的成员不是数据类型**，括号里面的才是关联的具体类型。
+
+
+
 
 
 ## 错误处理
