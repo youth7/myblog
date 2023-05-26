@@ -1,29 +1,66 @@
 `unwrap`和`expect`方法总结
 
+规律：
+
+* `unwarp`和`expect`系是拆箱取值
+* `map`系同类型是转换
+* `ok`是`Option`和`Result`互转
+* `or`是同类型的逻辑或（`|`）关系
+* 名称中出现`_err`是`Result`的`Err`专享
+* 名称中出现`_or`是提供默认值
+* 名称中出现`_else`和`_or`类似，但是默认值由函数提供
+
 ## `unwrap`系
 
-
+用于获取对象里面包裹的泛型结果，即`Some(T)`和`Ok(T)`中的`T`
 
 | 方法名称 | `Option`的值为`None`时的返回策略                             | `Result`的值为`Err`时的返回策略                              |
 | ---------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| `unwrap`               | 没有返回值，直接panic                                        | 类似`Option`，略                                             |
+| `unwrap`               | 直接panic                                        | 类似`Option`，略                                             |
 | `unwrap_or`            | 返回一个默认值。该默认值是调用`unwrap_or`时传参指定的        | 类似`Option`，略                                             |
 | `unwrap_or_default`    | 返回一个默认值。该默认值是实现`Default`Trait时确定的         | 类似`Option`，略                                             |
 | `unwrap_or_else`       | 返回一个默认值。该默认值是由传递给`unwrap_or_else`的闭包参数决定的 | 类似`Option`，略                                             |
-| `unwrap_unchecked`     | 返回一个`None`,如果在`Some`上调用将会导致undefined behavior  | 类似`Option`，略                                             |
-| `unwrap_err`           |                                                              | 返回`Err`对象的值，如果在`Ok`上调用将会导致panic，该方法**会检查**返回的对象是不是`Ok` |
-| `unwrap_err_unchecked` |                                                              | 返回`Err`对象的值，如果在`Ok`上调用将会导致undefined behavior，因为该方法**不会检查**返回的对象是不是`Ok` |
+| `unwrap_unchecked`     | 会导致undefined behavior，也就是说如果调用者100%肯定这个`Option`一定是`Some`时可以使用这个方法 | 类似`Option`，略                                             |
+| `unwrap_err`           | - | 返回`Err`对象的值，如果在`Ok`上调用将会导致panic，该方法**会检查**返回的对象是不是`Ok` |
+| `unwrap_err_unchecked` | - | 返回`Err`对象的值，如果在`Ok`上调用将会导致undefined behavior，因为该方法**不会检查**返回的对象是不是`Ok` |
 
 
 
 ## `expect`系
 
-这个方法和`unwrap`相关方法类似，唯一的不同是可以个性化报错信息
+和`unwrap`系类似，唯一的不同是可以个性化报错信息
 
-
-
- |方法名称 | `Option`的值为`None`时的返回策略                     | `Result`的值为`Err`时的返回策略                  |
+|方法名称 | `Option`的值为`None`时的返回策略                     | `Result`的值为`Err`时的返回策略                  |
 | ------------ | ---------------------------------------------------- | ------------------------------------------------ |
-| `expect`     | 没有返回值，直接panic，但是可以指定panic时的错误信息 | 类似`Option`，略                                 |
-| `expect_err` |                                                      | 返回`Err`对象的值，如果在`Ok`上调用将会导致panic |
+| `expect`     | 直接panic，但是可以指定panic时的错误信息 | 类似`Option`，略                                 |
+| `expect_err` | - | 返回`Err`对象的值，如果在`Ok`上调用将会导致panic |
 
+
+
+## `map`系
+
+转换包裹器中的数据类型，
+
+| 方法名称      | `Option`                                              | `Result`                          |
+| ------------- | ----------------------------------------------------- | --------------------------------- |
+| `map`         | 将`Option<T>`转换为`Option<U>`，`None`不变            | 和`Option`类似                    |
+| `map_or`      | 将`Option<T>`转换为`U`，`None`转换为类型是`U`的默认值 | 和`Option`类似                    |
+| `map_or_else` | 和`map_or`类似，但`None`时的默认值是由一个函数提供    | 和`Option`类似                    |
+| `map_err`     | -                                                     | 将`Result<T,E>`转化Result`<T, F>` |
+
+
+
+## `Ok`系
+
+| 方法名称     | `Option`                                                     | `Result`                 |
+| ------------ | ------------------------------------------------------------ | ------------------------ |
+| `ok`         |                                                              | 将`Result`转化为`Option` |
+| `ok_or`      | 将`Option`转换为`Result`，并指定`None`转化为`Err(err)`时的默认值 | -                        |
+| `ok_or_else` | 和`ok_or`类似，但`None`时的默认值是由一个函数提供            | -                        |
+
+## `Or`系
+
+| 方法名称  | `Option`                                       | `Result`       |
+| --------- | ---------------------------------------------- | -------------- |
+| `or`      | 当前`Option`为`None`时返回另外一个默认`Option` | 和`Option`类似 |
+| `or_else` | 和`or`类似，但是默认值由函数提供               | 和`Option`类似 |
