@@ -183,7 +183,7 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 ## 了解CPU对二进制文件结构的要求
 
-教程是基于Cortex-M3的MCULM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)（关于ARM架构和处理器核心的关系可以参考[这里](https://zh.m.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B)），看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
+教程是基于Cortex-M3的[MCULM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)（关于ARM架构和处理器核心的关系可以参考[这里](https://zh.m.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B)），看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
 
 vector_table是一个指针数组，里面每个元素（vector）都指向了某个内存地址（大部分是异常处理函数的起始地址），关于它的具体结构可以看[这里](https://documentation-service.arm.com/static/5ea823e69931941038df1b02?token=)。对本教程来说最重要的是前2个指针：
 
@@ -286,7 +286,7 @@ SECTIONS
 >
 > 易失：RAM
 
-### [ENTRY](https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_chapter/ld_3.html#SEC24)
+### [ENTRY](https://sourceware.org/binutils/docs/ld/Entry-Point.html#index-ENTRY_0028symbol_0029)
 
 定义了程序的入口为Rust代码中定义的函数`Reset`。链接器会抛弃未使用的节，如果脚本中没有这一行则链接器会认为`Reset`未被使用从而抛弃之。
 
@@ -294,17 +294,17 @@ SECTIONS
 
 ### [EXTERN](https://sourceware.org/binutils/docs/ld/Miscellaneous-Commands.html)
 
-链接器会从`entry`命令指定的函数开始，从目标文件中递归搜索所有用到的符号，一旦所有符合解析完成了就停止，即使此时还有目标文件未被搜索。`EXTERN`的作用是强制链接器去继续解析被`EXTERN`作为参数的符号，例如本节中的`RESET_VECTOR`。
+链接器会从`entry`命令指定的函数开始，从目标文件中递归搜索所有用到的符  号，一旦所有符合解析完成了就停止，即使此时还有目标文件未被搜索。`EXTERN`的作用是强制链接器去继续解析被`EXTERN`作为参数的符号，例如本节中的`RESET_VECTOR`。
 
 其实不太明白为何要多用一个变量`RESET_VECTOR`而不是直接使用`Reset`这个符号，`Reset`已经包含了足够的信息用来填充vector table（ 在下一小结我们会通过检查符号表来印证这个结论），唯一的可能性是使用`RESET_VECTOR`会使得链接脚本更加容易编写？
 
 
 
-注意：文中关于`EXTERN`的目的和文档中的记录在**字面上**不是完全一致，这里先记录几个关键点：
+注意：原文中关于`EXTERN`的作用和文档中的记录在**字面上**不是完全一致，这里先记录几个关键点：
 
 * ELF中undefined symbol的相关知识，可以参考[这里](https://docs.oracle.com/cd/E19120-01/open.solaris/819-0690/chapter2-9/index.html)。
 
-* 文档说`EXTERN`与`-u`等价，`-u`中有这么一句：*If this option is being used to force additional modules to be pulled into the link*，这可能就是文章中使用`EXTERN的目的`
+* 文档说`EXTERN`与`-u`等价，`-u`中有这么一句：*[If this option is being used to force additional modules to be pulled into the link](https://sourceware.org/binutils/docs/ld/Options.html)*，这可能就是文章中使用`EXTERN的目的`
 
 
 
