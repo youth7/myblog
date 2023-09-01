@@ -183,7 +183,12 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 ## 了解CPU对二进制文件结构的要求
 
-教程是基于Cortex-M3的[MCULM3S6965](http://www.ti.com/product/LM3S6965)编写的，关于它的技术细节可以查阅文档。因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)（关于ARM架构和处理器核心的关系可以参考[这里](https://zh.m.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B)），看CPU加电之后是怎么执行第一个程序的。通过查找得知最重要的就是：**初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
+教程是基于Cortex-M3的[MCULM3S6965](http://www.ti.com/product/LM3S6965)编写的，因为我们的目标是从裸机上启动一个程序，所以目前最重要的是阅读[Cortex-M3的文档](https://developer.arm.com/documentation/dui0552/a/the-cortex-m3-processor)（关于ARM架构和处理器核心的关系可以参考[这里](https://zh.m.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B)），看CPU加电之后是怎么执行第一个程序的。通过查找得知需要完成两件事：
+
+1. **初始化[vector table](https://developer.arm.com/docs/dui0552/latest/the-cortex-m3-processor/exception-model/vector-table) 前两个指针的值**。
+2. **将vector_table放置到内存中的特定位置（默认是0x00000000）**
+
+> On system reset, the vector table is fixed at address `0x00000000`. Privileged software can write to the VTOR to relocate the vector table  start address to a different memory location, in the range `0x00000080` to `0x3FFFFF80`, see [*Vector Table Offset Register*](https://developer.arm.com/documentation/dui0552/a/cortex-m3-peripherals/system-control-block/vector-table-offset-register?lang=en).
 
 vector_table是一个指针数组，里面每个元素（vector）都指向了某个内存地址（大部分是异常处理函数的起始地址），关于它的具体结构可以看[这里](https://documentation-service.arm.com/static/5ea823e69931941038df1b02?token=)。对本教程来说最重要的是前2个指针：
 
@@ -269,13 +274,13 @@ SECTIONS
 }
 ```
 
-这个脚本初始化了vector table的前两项并将它放置到正确的地方，关于链接脚本的完整语法请参考[https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_chapter/ld_toc.html#TOC16](https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_chapter/ld_toc.html#TOC16)，这里我们只简要说明一下各个部分的作用。
+这个脚本初始化了vector table的前两项并将它放置到正确的地方，关于链接脚本的完整语法请参考[【链接脚本(Linker Scripts)语法和规则解析(自官方手册)】](https://www.cnblogs.com/jianhua1992/p/16852784.html)，这里我们只简要说明一下各个部分的作用。
 
 ### [MEMORY](https://ftp.gnu.org/old-gnu/Manuals/ld-2.9.1/html_chapter/ld_3.html#SEC16)
 
 定义了可用的存储空间的地址和大小。此处定义了两个可用的存储空间：
 
-* FLASH：定义了微控制器上的闪存起始和大小
+*  FLASH：定义了微控制器上的闪存起始和大小
 * RAM：定义了微控制器上的内存起始和大小
 
 具体的值是根据LM3S6965的技术文档
