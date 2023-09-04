@@ -163,9 +163,32 @@ nm ./target/thumbv7m-none-eabi/debug/deps/*.o
 
 > 另：eh应该是exception handling的缩写，见[这里的讨论](https://www.reddit.com/r/rust/comments/estvau/til_why_the_eh_personality_language_item_is/) 
 
-
-
 > 在第二章的末尾，我们会通过GDB来验证通过`[panic_handler]`自定义的崩溃处理函数确实会在系统崩溃时候被调用
+
+
+
+关于`eh_personality`的描述有：
+
+> `rust_eh_personality` - is used by the failure mechanisms of the **compiler**. This is often mapped to GCC’s personality function, but crates which do not trigger a panic can be assured that this function is never called. The `lang` attribute is called `eh_personality`.
+>
+> ——*https://doc.rust-lang.org/core/*
+
+
+
+> The `eh_personality` type, in particular, **tells the compiler  that this function is used for implementing stack unwinding**. Which is  essentially the code that gets executed when a function is popped from  the function stack. So, probably the memory which the function was using gets freed in this.
+>
+> ——*A Freestanding Rust Binary*
+
+
+
+有人和我有同样的[疑问](https://stackoverflow.com/questions/48982154/where-is-eh-personality-called)，他发现`eh_personality`并没有在core包中被直接调用。而另外一个人的回答是：
+
+* 搜索`rust_eh_personality`在源码中找到相关的例子
+* 搜索`eh_personality`就是函数被调用的地方
+
+* `#[lang = "eh_personality"]`是函数被定义的地方
+
+结论：通过`#[lang = "eh_personality"]`修饰的函数**不是被库直接调用，而是被编译器在生成代码的时候调用**
 
 
 

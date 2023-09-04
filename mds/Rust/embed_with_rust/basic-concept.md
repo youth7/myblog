@@ -18,9 +18,9 @@
 
 另外参考[这里](https://piolabs.com/blog/insights/debugging-embedded.html#debug-probes)：
 
->Nowadays there are two prevalent interfaces used for debugging embedded systems: JTAG and Serial Wire Debug (SWD). The classic JTAG was developed in the ’80s by the Joint Test Access Group as a standard for verifying designs and testing printed circuit boards after manufacture. Today, JTAG is widely adopted by the semiconductor industry and frequently used for programming, testing and debugging embedded systems. The main disadvantage of the JTAG interface is that it requires at least four pins (TRST is optional) for normal functioning. This might be a problem when we are using small package ICs with a limited number of pins. 
->
->There is a simplified alternative interface called Serial Wire Debug (SWD) developed by Arm. It replaces the JTAG interface with two signals - a single bi-directional data line (SWDIO) and clock (SWCLK), providing all the usual debug and test functionality with higher performance compared JTAG. Although a lot of modern microcontrollers support both JTAG and SWD interfaces, SWD is a **proprietary interface** and can be used mostly within the Arm ecosystem.
+>Nowadays there are **two prevalent interfaces** used for debugging embedded systems: JTAG and Serial Wire Debug (SWD). The **classic JTAG** was developed in the ’80s by the Joint Test Access Group as ****a standard**** for verifying designs and testing printed circuit boards after manufacture. Today, JTAG is widely adopted by the semiconductor industry and frequently used for programming, testing and debugging embedded systems. The main disadvantage of the JTAG interface is that it requires at least four pins (TRST is optional) for normal functioning. This might be a problem when we are using small package ICs with a limited number of pins. 
+
+>There is**a simplified alternative interface called Serial Wire Debug (SWD)** developed by Arm. It replaces the JTAG interface with two signals - a single bi-directional data line (SWDIO) and clock (SWCLK), providing all the usual debug and test functionality with higher performance compared JTAG. Although a lot of modern microcontrollers support both JTAG and SWD interfaces, SWD is a **proprietary interface** and can be used mostly within the Arm ecosystem.
 
 
 
