@@ -30,8 +30,6 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 
 
 
-
-
 ## [System Emulation](https://www.qemu.org/docs/master/system/index.html)
 
 ### 简介
@@ -54,7 +52,10 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 
 * `-bios`：通过文件名指定BIOS程序。根据多阶段启动的思路（见[这里](http://rcore-os.cn/rCore-Tutorial-Book-v3/appendix-c/index.html)），在OS启动前可以有多个启动阶段，而负责各个阶段的启动程序可以用这个选项来指定
 
+#### Debug/Expert optionS
 
+* `-s`：Shorthand for -gdb [tcp::1234](tcp::1234)
+* `-S`：Do not start CPU at startup (you must type ‘c’ in the monitor).
 
 ### [Device Emulation](https://www.QEMU.org/docs/master/system/device-emulation.html)
 
