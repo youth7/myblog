@@ -28,5 +28,12 @@
 # ELF基础
 这个请参考：
 * [ELF file header](../../csapp3e/elf_file_header.md)
-* [ELF节表](../../csapp3e/elf_section_table.md)
+* [ELF section table](../../csapp3e/elf_section_table.md)
+* [静态链接和动态链接](../../csapp3e/static_dyn_link.md)
+
+
+
+# RISCV基础
+
+参考[这里](./RISCV.md)，需要注意我们的目标是写OS而不是做RISCV开发，因此前期无需太过于深入RISCV（这个领域非常有趣，可以写完OS后再回来仔细研究，可挖掘的点非常多，如动态链接在Linux上的实现等）
 

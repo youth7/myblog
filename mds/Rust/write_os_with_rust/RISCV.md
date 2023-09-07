@@ -1,4 +1,14 @@
+汇编器中`as`的Directives见：https://sourceware.org/binutils/docs/as/Pseudo-Ops.html
 
+RISCV专用的Directives见：https://sourceware.org/binutils/docs/as/RISC_002dV_002dDirectives.html
+
+
+
+
+
+
+
+寄存器
 
 
 | 5-bit Encoding (rx) | 3-bit Compressed Encoding (rx') | Register | ABI Name | Description                                      | Saved by Calle- |
