@@ -11,7 +11,7 @@
 
 ## [一些前置知识](write_os_with_rust/pre-knowledge.md) 
 
-## [ch2：运行内核第一条指令](write_os_with_rust/ch2.md)
+## [ch1：运行内核第一条指令](write_os_with_rust/ch1.md)
 
 
 
