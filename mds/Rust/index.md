@@ -7,7 +7,7 @@
 ## <!--[《Rust编程第一课》学习笔记](geek_rust_note.md)-->
 
 # 用Rust写OS
-务必完成前置知识的学习，否则到后面只会越卡越痛苦
+按照[rCore教程](http://rcore-os.cn/rCore-Tutorial-Book-v3/index.html)用Rust写OS，根据自己的理解做了一些简化，务必完成前置知识的学习，否则到后面只会越卡越痛苦。
 
 ## [一些前置知识](write_os_with_rust/pre-knowledge.md) 
 

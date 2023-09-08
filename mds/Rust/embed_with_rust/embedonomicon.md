@@ -353,6 +353,17 @@ rustflags = ["-C", "link-arg=-Tlink.x"]
 target = "thumbv7m-none-eabi"
 ```
 
+>  这里的要点有：
+>
+> * [cargo book](https://doc.rust-lang.org/cargo/reference/config.html?highlight=rustflags#configuration-format)中关于`[target.<triple>].rustflags`的配置
+>
+> * [rustc book](https://doc.rust-lang.org/rustc/codegen-options/index.html)中关于`-C`配置：
+>   * All of these options are passed to `rustc` **via the `-C` flag, short for "codegen".** You can see a version of this list for your exact compiler by running `rustc -C help`.
+>   * Code generation (or "codegen") is the part of the compiler that actually generates an executable binary
+> * `link-arg`后面接的是传给连接器`ld`的值，查阅`ld`手册可知`-T`选项用来指定链接脚本的路径
+
+
+
 先使用`cargo build --bin app`编译项目。成功后使用以下命令来检查结果是否符合预期
 
 ```powershell
@@ -767,7 +778,7 @@ fn main2() -> ! {
 * 编译和链接时会确定一些信息并将它们记录到ELF中，这些信息包括：
   * 变量`BSS`和`DATA`的值（它们分别属于节`.bss`和`.data`）
   * 节`.bss`和`.data`的LMA、VMA值（理解LMA和VMA非常重要，可以参考[这里](https://github.com/cisen/blog/issues/887)和[这里](https://blog.csdn.net/eydwyz/article/details/124179377)）
-* ELF会被加载（烧录）到ROM（可以认为Rom就是PC中的硬盘）里面，机器启动时直接读取存储在ROM中的`.text`节的指令（**后面可以看到该节的LMA和VMA是相同的，但`.data`节就不相同，这点很关键**），但这些指令所访问的一些数据是在RAM中的（例如链接脚本里面就把`.bss`和`.data`分配到RAM中），**即编译时候就认为这些数据是在RAM的地址空间内**，而此时RAM里面的内容尚未被初始化（没有将ELF文件的`.bss`和`.data`复制到RAM中），直接读取的话会读到脏数据）
+* ELF会被加载（烧录）到ROM（可以认为ROM就是PC中的硬盘）里面，机器启动时直接读取存储在ROM中的`.text`节的指令（**后面可以看到该节的LMA和VMA是相同的，但`.data`节就不相同，这点很关键**），但这些指令所访问的一些数据是在RAM中的（例如链接脚本里面就把`.bss`和`.data`分配到RAM中），**即编译时候就认为这些数据是在RAM的地址空间内**，而此时RAM里面的内容尚未被初始化（没有将ELF文件的`.bss`和`.data`复制到RAM中），直接读取的话会读到脏数据）
 * 因为第2条的原因，需要在运行前**将ROM里面的相关数据复制到RAM中，营造一个与预期一致的运行环境**
 
 上述的核心思想是，**编译和链接器为了保持程序能够正常执行，需要满足运行环境的一些要求（主要是内存的地址空间），这些约定被记录在ELF文件中。**更具体地说：

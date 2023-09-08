@@ -53,7 +53,7 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 
 **文档：**
 
-* [《Cortex -M4 Devices Generic User Guide》](https://developer.arm.com/documentation/dui0553/b/?lang=en)：microbit:v2使用了这个幸型号的CPU，虽然原文没有直接使用它，但本文解释代码的时候会用到。
+* [《Cortex -M4 Devices Generic User Guide》](https://developer.arm.com/documentation/dui0553/b/?lang=en)：microbit:v2使用了这个型号的CPU，虽然原文没有直接使用它，但本文解释代码的时候会用到。
 
 
 
