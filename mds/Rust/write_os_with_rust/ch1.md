@@ -15,8 +15,8 @@
 为了简单，我们的OS内核只由一条RISCV指令构成。这非常简单，可以用汇编直接完成
 
 ```assembly
-.section .text.entry	#.text.entry是一个地址，稍后会被链接脚本引用
-.globl _start	#_start是一个地址，稍后会被链接脚本引用
+.section .text.entry
+.globl _start	#定义全局符号_start，使其对外可见，它是一个地址，稍后会被链接脚本引用
  _start:
      li x1, 100
 ```
@@ -50,10 +50,10 @@ cargo build --release --target riscv64gc-unknown-none-elf
 
 链接脚本的内容如下：
 
-```link
+```assembly
 OUTPUT_ARCH(riscv)
-ENTRY(_start)
-BASE_ADDRESS = 0x80200000;
+ENTRY(_start)/*引用了上面汇编代码中定义的全局符号_start*/
+BASE_ADDRESS = 0x80200000;/*符号定义，这个符号在后面二进制文件中可以找到*/
 
 SECTIONS
 {
@@ -85,8 +85,8 @@ SECTIONS
     . = ALIGN(4K);
     edata = .;
     .bss : {
-        *(.bss.stack)
-        sbss = .;
+        *(.bss.stack)/*注意这是栈空间，为何栈空间需要写入ELF呢？*/
+        sbss = .;	/*sbss和ebss之间的内容需要初始化为0,但是.bss.stack不需要初始化，因此.bss.stack不在sbss和ebss之间*/
         *(.bss .bss.*)
         *(.sbss .sbss.*)
     }
@@ -110,14 +110,7 @@ rustflags = [
 ]
 ```
 
-这里的要点有：
-
-* [cargo book](https://doc.rust-lang.org/cargo/reference/config.html?highlight=rustflags#configuration-format)中关于`[target.<triple>].rustflags`的配置
-
-* [rustc book](https://doc.rust-lang.org/rustc/codegen-options/index.html)中关于`-C`配置：
-  * All of these options are passed to `rustc` **via the `-C` flag, short for "codegen".** You can see a version of this list for your exact compiler by running `rustc -C help`.
-  * Code generation (or "codegen") is the part of the compiler that actually generates an executable binary
-* `link-arg`后面接的是传给连接器`ld`的值，查阅`ld`手册可知`-T`选项用来指定链接脚本的路径
+> 关于配置项的意义请看[这里](../embed_with_rust/embedonomicon.md)中的【*检查可执行文件*】那一节。
 
 
 
@@ -172,14 +165,7 @@ Symbol table '.symtab' contains 14 entries:
 
 文件布局跟链接脚本里指定的一致，这一步算是完成了。
 
-> 仔细观察会发现执行文件里缺少debug相关的section，这会导致在步骤3的时候无法使用gdb来验证我们的工作，可以通过修改`Cargo.toml`文件，在里面加入以下内容：
->
-> ```toml
-> [profile.release]
-> debug = true
-> ```
->
-> 这样即使是使用`release` [profile](https://course.rs/cargo/reference/profiles.html)也能保留debug信息了
+
 
 ## 将这个二进制文件load到裸机的某个地址
 
@@ -254,3 +240,58 @@ Breakpoint 1, 0x0000000080200000 in stext ()
 
 > 这个文件上一次的提交时间是22年的6月，当时被太多细节卡得无法继续写下去。时隔一年3个月，补充了各种底层知识后哥又回来了，现在不仅能轻松完成还能随意按照自己的意愿魔改，值得庆祝的里程碑！
 
+
+
+# 为内核支持函数调用
+
+这一节主要工作时设置栈，只有设置好栈之后才能进行函数调用，主要包含以下几步
+
+1. 在汇编代码中划分栈空间，通过修改汇编代码实现：
+
+   ```assembly
+   .section .text.entry	#定义名为.text.entry的section，它稍后会被链接脚本引用
+   .globl _start	#定义全局符号_start，使其对外可见，它是一个地址，稍后会被链接脚本引用
+   _start:
+       la sp, boot_stack_top	#设置栈顶值，boot_stack_top此时是指向栈顶的
+       call rust_main			#上面设置好sp之后，才能正常调用rust程序
+       .section .bss.stack #定义了一个section，后续的内容都会进入这个section，包括后面.space中指定的，注意.bss.stack已经包含在链接脚本中了
+       .globl boot_stack_lower_bound	#定义全局符号
+   boot_stack_lower_bound:	#栈底 
+       .space 4096 * 16	#分配栈空间
+       .globl boot_stack_top	#定义全局符号
+   boot_stack_top:			#栈顶
+   ```
+
+   > 按道理来说栈是无需在ELF文件中指定的，这里设置把栈放置到`.bss`中，有点不好理解。可能这是裸机编程而不是普通的应用程序那种面向虚拟地址空间的编程？
+
+2. 通过Rust代码初始化`.bss`中的内容
+
+   这里的重点是：
+
+   * ELF此时被QEMU直接加载到内存中，**ELF已经不仅仅是一个静态image了，成为了程序运行时的内存布局**，因为ELF中的代码段已经记录了所有的地址信息，因此剪裁为bin文件后不影响代码执行。
+   * `.bss`是必须手动初始化的，因为它再ELF中不占空间，但是通过`.space`定义的就占据空间
+
+   ```rust
+   #[no_mangle]
+   pub fn rust_main() -> ! {
+       clear_bss();
+       loop {}
+   }
+   
+   
+   fn clear_bss() {
+       extern "C" {
+           fn sbss();//将链接脚本中sbss和ebss视为函数也不是不可以，因为后面不是实施真正的调用，只是利用了地址值
+           fn ebss();
+       }
+       (sbss as usize..ebss as usize).for_each(|a| {
+           unsafe { (a as *mut u8).write_volatile(0) }
+       });
+   }
+   ```
+
+   
+
+
+
+# 基于SBI服务完成输出和关机
