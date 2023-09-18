@@ -1,6 +1,6 @@
 # 第一条内核指令
 
-这章最难的地方就是编写一个从裸机上启动的程序，一定要先参考[这里](../embed_with_rust/embedonomicon.md)的前几章，否则卡点太多晕头转向。裸机运行程序的流程是：
+这节的内容是**编写一个最为简单的从裸机上启动的程序**，一定要先参考[这里](../embed_with_rust/embedonomicon.md)的前几章，否则卡点太多晕头转向。裸机运行程序的流程是：
 
 1. 编译程序得到一个二进制文件
 2. 将这个二进制文件load到裸机的某个地址
@@ -173,27 +173,38 @@ Symbol table '.symtab' contains 14 entries:
 
 1. 将上一个流程生成的ELF裁剪为bin文件，ELF和bin的区别看[这里](https://stackoverflow.com/questions/2427011/what-is-the-difference-between-elf-files-and-bin-files)
 
-   使用以下命令进行裁剪
-
-   ```bash
-   rust-objcopy --strip-all target/riscv64gc-unknown-none-elf/release/os -O binary target/riscv64gc-unknown-none-elf/release/os.bin
-   ```
 
 2. 加载bin文件到指定位置
 
-   对于我们这个环境，其启动流程如下
 
-   | 步骤 | 代码入口   | 运行的程序       | 说明                                                         |
-   | ---- | ---------- | ---------------- | ------------------------------------------------------------ |
-   | 1    | 0x1000     | QEMU固件中的程序 | QEMU CPU 的程序计数器（PC, Program Counter）会被初始化为 `0x1000` |
-   | 2    | 0x80000000 | RustSBI          | 入口地址是QEMU指定的                                         |
-   | 3    | 0x80200000 | 用户自己写的代码 | 入口地址是RustSBI指定的                                      |
 
-   我们需要将bin文件load到地址为0x80200000的地方，这可以在命令行启动QEMU时候，通过设置相关参数实现，具体见下一步。
+对于步骤1，使用以下命令进行裁剪，
 
-   > * 关于系统启动的一般过程可以参考[这里](https://www.zhihu.com/question/21672895/answer/774538058)
-   >
-   > * 关于risc-v的启动过程可以参考[这里](https://rcore-os.github.io/rCore-Tutorial-Book-v3/appendix-c/index.html)
+```rust
+rust-objcopy --strip-all target/riscv64gc-unknown-none-elf/release/os -O binary target/riscv64gc-unknown-none-elf/release/os.bin
+```
+
+注意`--strip-all`的作用是：
+
+*Do not copy relocation and symbol information from the source file.  Also deletes debug sections*
+
+`objcopy`只是删除一些运行时无关的信息，与运行有关的数据段信息是会保留的。并且从上面的符号表可看到，我们自定义的有用的section全部放在前面，无用的符号表之类全在自定义节的后面，因此无论这个ELF是否地址无关，剪裁后都可以正常执行。
+
+
+
+对于步骤2，对于我们这个环境，其启动流程如下
+
+| 步骤 | 代码入口   | 运行的程序       | 说明                                                         |
+| ---- | ---------- | ---------------- | ------------------------------------------------------------ |
+| 1    | 0x1000     | QEMU固件中的程序 | QEMU CPU 的程序计数器（PC, Program Counter）会被初始化为 `0x1000` |
+| 2    | 0x80000000 | RustSBI          | 入口地址是QEMU指定的                                         |
+| 3    | 0x80200000 | 用户自己写的代码 | 入口地址是RustSBI指定的                                      |
+
+我们需要将bin文件load到地址为0x80200000的地方，这可以在命令行启动QEMU时候，通过设置相关参数实现，具体见下一步。
+
+> * 关于系统启动的一般过程可以参考[这里](https://www.zhihu.com/question/21672895/answer/774538058)
+>
+> * 关于risc-v的启动过程可以参考[这里](https://rcore-os.github.io/rCore-Tutorial-Book-v3/appendix-c/index.html)
 
 
 
@@ -244,9 +255,9 @@ Breakpoint 1, 0x0000000080200000 in stext ()
 
 # 为内核支持函数调用
 
-这一节主要工作时设置栈，只有设置好栈之后才能进行函数调用，主要包含以下几步
+这一节是在上一步的基础上，**增加设置栈空间的内容**，只有设置好栈之后才能进行下一节的函数调用，主要包含以下几步
 
-1. 在汇编代码中划分栈空间，通过修改汇编代码实现：
+1. 在汇编代码中划分栈空间，通过修改汇编代码实现，因为设置栈需要修改sp，这只能使用汇编实现，修改`entry.asm`为：
 
    ```assembly
    .section .text.entry	#定义名为.text.entry的section，它稍后会被链接脚本引用
@@ -266,10 +277,7 @@ Breakpoint 1, 0x0000000080200000 in stext ()
 
 2. 通过Rust代码初始化`.bss`中的内容
 
-   这里的重点是：
-
-   * ELF此时被QEMU直接加载到内存中，**ELF已经不仅仅是一个静态image了，成为了程序运行时的内存布局**，因为ELF中的代码段已经记录了所有的地址信息，因此剪裁为bin文件后不影响代码执行。
-   * `.bss`是必须手动初始化的，因为它再ELF中不占空间，但是通过`.space`定义的就占据空间
+   bin文件此时被QEMU直接加载到内存中，**它已经不仅仅是一个静态image了，成为了程序运行时的内存布局**，因此必须初始化`.bss`（它在ELF中不占空间）
 
    ```rust
    #[no_mangle]
@@ -289,9 +297,209 @@ Breakpoint 1, 0x0000000080200000 in stext ()
        });
    }
    ```
-
+   
    
 
 
 
 # 基于SBI服务完成输出和关机
+
+这一节是在上一步的基础上，**增加定义的函数，调用RustSBI的方法完成一些基础功能**。如果不熟悉Rust宏和RustSBI可以先将其视为一个黑盒。
+
+SBI为上层软件提供一个公共的抽象，使得基于它的上层软件具有移植性。RustSBI是RISC-V的一部分，如果不熟悉可以先将其视为一个黑盒，只需要知道如何调用就可以，记住我们的目的是开发一个OS而不是专精做RISC-V开发，同理后续的Rust宏也一样对待。
+
+首先，我们将RustSBI的功能封装为独立的模块，新建`sbi.rs`
+
+```rust
+#![allow(unused)]
+use core::arch::asm;
+
+#[inline(always)]
+fn sbi_call(eid: usize, fid: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {    // 用asm!而不是像之前那样include_str!的原因是需要给汇编传参
+    let mut ret;
+    unsafe {
+        asm!(
+            "ecall",//调用riscv的ecall指令
+            inlateout("x10") arg0 => ret,//x10寄存器的值从由变量arg0指定。并且，指令调用结束后的返回值写到ret变量中
+            in("x11") arg1,//传参，a1寄存器的值从由变量arg1指定
+            in("x12") arg2,//传参，a2寄存器的值从由变量arg2指定
+            in("x16") fid,//a6存function id
+            in("x17") eid,//a7存extension id
+        );
+    }
+    ret
+}
+
+
+
+// legacy extensions: ignore fid
+const SBI_SET_TIMER: usize = 0;
+const SBI_CONSOLE_PUTCHAR: usize = 1;
+const SBI_CONSOLE_GETCHAR: usize = 2;
+const SBI_CLEAR_IPI: usize = 3;
+const SBI_SEND_IPI: usize = 4;
+const SBI_REMOTE_FENCE_I: usize = 5;
+const SBI_REMOTE_SFENCE_VMA: usize = 6;
+const SBI_REMOTE_SFENCE_VMA_ASID: usize = 7;
+
+// system reset extension
+const SRST_EXTENSION: usize = 0x53525354;
+const SBI_SHUTDOWN: usize = 0;
+
+pub fn console_putchar(c: usize) {
+    sbi_call(SBI_CONSOLE_PUTCHAR, 0, c, 0, 0);
+}
+
+pub fn shutdown() -> ! {
+    crate::println!("shutdown now ...");//这个宏是在后面console.rs中导出的
+    sbi_call(SRST_EXTENSION, SBI_SHUTDOWN, 0, 0, 0);
+    unreachable!("impossible to be here");
+}
+```
+
+关于SBI的调用规范见[这里](https://docs.rs/rustsbi/latest/rustsbi/#call-sbi-in-different-programming-languages)，RISC-V的Calling Convention见[这里](https://riscv.org/wp-content/uploads/2015/01/riscv-calling.pdf)。
+
+
+
+然后，调用RustSBI的功能实现打印功能的模块，新建`console.rs`
+
+```rust
+//! SBI console driver, for text output
+
+use crate::sbi::console_putchar;
+use core::fmt::{self, Write};
+
+struct Stdout;
+
+impl Write for Stdout {
+    fn write_str(&mut self, s: &str) -> fmt::Result {
+        for c in s.chars() {
+            console_putchar(c as usize);
+        }
+        Ok(())
+    }
+}
+
+pub fn print(args: fmt::Arguments) {
+    Stdout.write_fmt(args).unwrap();
+}
+
+/// print string macro
+#[macro_export]
+macro_rules! print {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::console::print(format_args!($fmt $(, $($arg)+)?));
+    }
+}
+
+/// println string macro
+#[macro_export]
+macro_rules! println {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::console::print(format_args!(concat!($fmt, "\n") $(, $($arg)+)?));
+    }
+}
+```
+
+宏里面翻来覆去的依赖关系是这样的：
+
+1. 因为需要模拟到跟std中的`print!/println!`一样**支持动态参数**，所以自定义的`print!/println!`依赖[`Argument`](https://doc.rust-lang.org/core/fmt/struct.Arguments.html)，而`format_args!`恰好能返回`Argument`。
+
+   > Any value that implements the [`Display`](https://doc.rust-lang.org/core/fmt/trait.Display.html) trait can be passed to `format_args!`, as can any [`Debug`](https://doc.rust-lang.org/core/fmt/trait.Debug.html) implementation be passed to a `{:?}` within the formatting string.
+
+2. [`Write`](https://doc.rust-lang.org/alloc/fmt/trait.Write.html) trait中的`write_fmt`方法恰好能接受`Argument`参数，因此需要实现它。注意`Argument`是已经格式化后的字符串。
+
+
+
+最后，我们在`main.rs`调用上述封装好的功能，修改为：
+
+```rust
+#![feature(panic_info_message)]
+#![no_main]
+#![no_std]
+use core::panic::PanicInfo;
+use core::arch::global_asm;
+
+mod console;
+mod sbi;
+
+#[panic_handler]
+fn panic(info: &PanicInfo<'_>) -> ! {
+    //当panic的时候，打印堆栈信息然后关机
+    if let Some(location) = info.location() {
+        println!(
+            "Panicked at {}:{} {}",
+            location.file(),
+            location.line(),
+            info.message().unwrap()
+        );
+    } else {
+        println!("Panicked: {}", info.message().unwrap());
+    }
+    sbi::shutdown()
+}
+
+global_asm!(include_str!("entry.asm"));
+
+#[no_mangle]
+pub fn rust_main() -> ! {
+    clear_bss();
+    println!("hello, power on !!");
+    panic!("oh crash !! {}","-_-!")
+}  
+
+
+fn clear_bss() {
+    extern "C" {
+        fn sbss();//将链接脚本中sbss和ebss视为函数也不是不可以，因为后面不是实施真正的调用，只是利用了地址值
+        fn ebss();
+    }
+    (sbss as usize..ebss as usize).for_each(|a| {
+        unsafe { (a as *mut u8).write_volatile(0) }
+    });
+}
+```
+
+
+
+一切就绪，编译并**剪裁为bin（千万别忘记）**，然后启动QEMU测试一下：
+
+```bash
+qemu-system-riscv64 \
+    -machine virt \
+    -nographic \
+    -bios ./bootloader/rustsbi-qemu.bin \
+    -device loader,file=target/riscv64gc-unknown-none-elf/release/os.bin,addr=0x80200000
+```
+
+输出如下，我们的：
+
+```bash
+[rustsbi] RustSBI version 0.3.1, adapting to RISC-V SBI v1.0.0
+.______       __    __      _______.___________.  _______..______   __
+|   _  \     |  |  |  |    /       |           | /       ||   _  \ |  |
+|  |_)  |    |  |  |  |   |   (----`---|  |----`|   (----`|  |_)  ||  |
+|      /     |  |  |  |    \   \       |  |      \   \    |   _  < |  |
+|  |\  \----.|  `--'  |.----)   |      |  |  .----)   |   |  |_)  ||  |
+| _| `._____| \______/ |_______/       |__|  |_______/    |______/ |__|
+[rustsbi] Implementation     : RustSBI-QEMU Version 0.2.0-alpha.2
+[rustsbi] Platform Name      : riscv-virtio,qemu
+[rustsbi] Platform SMP       : 1
+[rustsbi] Platform Memory    : 0x80000000..0x88000000
+[rustsbi] Boot HART          : 0
+[rustsbi] Device Tree Region : 0x87e00000..0x87e0107e
+[rustsbi] Firmware Address   : 0x80000000
+[rustsbi] Supervisor Address : 0x80200000
+[rustsbi] pmp01: 0x00000000..0x80000000 (-wr)
+[rustsbi] pmp02: 0x80000000..0x80200000 (---)
+[rustsbi] pmp03: 0x80200000..0x88000000 (xwr)
+[rustsbi] pmp04: 0x88000000..0x00000000 (-wr)
+hello, power on !!
+Panicked at src/main.rs:32 oh crash !! -_-!
+shutdown now ...
+```
+
+
+
+# 练习
+
