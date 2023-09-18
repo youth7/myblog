@@ -2,13 +2,13 @@
 
 RISCV专用的Directives见：https://sourceware.org/binutils/docs/as/RISC_002dV_002dDirectives.html
 
+寄存器定义见：https://msyksphinz-self.github.io/riscv-isadoc/html/regs.html
 
 
 
 
 
-
-寄存器
+## Integer Registers
 
 
 | 5-bit Encoding (rx) | 3-bit Compressed Encoding (rx') | Register | ABI Name | Description                                      | Saved by Calle- |
@@ -45,3 +45,44 @@ RISCV专用的Directives见：https://sourceware.org/binutils/docs/as/RISC_002dV
 | 29                  | -                               | x29      | `t4`       | **t**emporary register **4**                     | -R              |
 | 30                  | -                               | x30      | `t5`       | **t**emporary register **5**                     | -R              |
 | 31                  | -                               | x31      | `t6`       | **t**emporary register **6**                     | -R              |
+
+
+
+
+
+## Floating Point Registers
+
+| Register | ABI Name | Description                | Saver  |
+| -------- | -------- | -------------------------- | ------ |
+| f0       | ft0      | FP temporaries             | Caller |
+| f1       | ft1      | FP temporaries             | Caller |
+| f2       | ft2      | FP temporaries             | Caller |
+| f3       | ft3      | FP temporaries             | Caller |
+| f4       | ft4      | FP temporaries             | Caller |
+| f5       | ft5      | FP temporaries             | Caller |
+| f6       | ft6      | FP temporaries             | Caller |
+| f7       | ft7      | FP temporaries             | Caller |
+| f8       | fs0      | FP saved registers         | Callee |
+| f9       | fs1      | FP saved registers         | Callee |
+| f10      | fa0      | FP arguments/return values | Caller |
+| f11      | fa1      | FP arguments/return values | Caller |
+| f12      | fa2      | FP arguments               | Caller |
+| f13      | fa3      | FP arguments               | Caller |
+| f14      | fa4      | FP arguments               | Caller |
+| f15      | fa5      | FP arguments               | Caller |
+| f16      | fa6      | FP arguments               | Caller |
+| f17      | fa7      | FP arguments               | Caller |
+| f18      | fs2      | FP saved registers         | Callee |
+| f19      | fs3      | FP saved registers         | Callee |
+| f20      | fs4      | FP saved registers         | Callee |
+| f21      | fs5      | FP saved registers         | Callee |
+| f22      | fs6      | FP saved registers         | Callee |
+| f23      | fs7      | FP saved registers         | Callee |
+| f24      | fs8      | FP saved registers         | Callee |
+| f25      | fs9      | FP saved registers         | Callee |
+| f26      | fs10     | FP saved registers         | Callee |
+| f27      | fs11     | FP saved registers         | Callee |
+| f28      | ft8      | FP temporaries             | Caller |
+| f29      | ft9      | FP temporaries             | Caller |
+| f30      | ft10     | FP temporaries             | Caller |
+| f31      | ft11     | FP temporaries             | Caller |
