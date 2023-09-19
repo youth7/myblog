@@ -159,10 +159,7 @@ riscv64-unknown-elf-ld a.o b.o -e main -o ab
 
 ```
 a.o:     file format elf64-littleriscv
-
-
 Disassembly of section .text:
-
 0000000000000000 <main>:
    0:	1101                	addi	sp,sp,-32
    2:	ec06                	sd	ra,24(sp)
@@ -183,11 +180,10 @@ Disassembly of section .text:
   2e:	6105                	addi	sp,sp,32
   30:	8082                	ret
 
+
+
 ab:     file format elf64-littleriscv
-
-
 Disassembly of section .text:
-
 00000000000100e8 <main>:
    100e8:	1101                	addi	sp,sp,-32
    100ea:	ec06                	sd	ra,24(sp)
@@ -215,8 +211,8 @@ Disassembly of section .text:
   14:	000007b7          	lui	a5,0x0	#计算shared地址的高20位，因为它暂时未知，所以暂设为0
   18:	00078593          	mv	a1,a5	#加载swap的第1个参数的地址到a1
   1c:	853a                	mv	a0,a4	#加载swap的第2个参数（即shared）的地址到a0
-  1e:	00000097          	auipc	ra,0x0	#加载swap地址，将"立即数高20位"加上"PC当前值"存到ra，因为swap地址此时未知，因此立即数为0
-  22:	000080e7          	jalr	ra # 1e <main+0x1e>	#调用swap，这个伪指令相当于jalr x1, ra, 0 
+  1e:	00000097          	auipc	ra,0x0	#加载swap地址，将"高20位"加上"PC当前值"存到ra，因为swap地址此时未知，因此立即数为0
+  22:	000080e7          	jalr	ra # 1e <main+0x1e>	#加载swap地址，将"低12位"加到ra中，以此为swap地址并调用swap，这个伪指令相当于jalr x1, ra, 0 
 ```
 
 这里有点奇怪的是计算`shared`地址的时候，不知道为何只包含了计算地址高20位的指令，没有包含低12位的计算。
@@ -225,7 +221,7 @@ Disassembly of section .text:
 
 * [AUIPC](https://jemu.oscc.cc/AUIPC) 与 [JALR](https://jemu.oscc.cc/JALR) 的 12 位立即数配合, 可以将控制流跳转到相对于 `PC` 的、32 位整型范围内的任意地址;
 
-* 其中`auipc ra, 0x0`计算了`PC` + `swap`地址的前20位（存在常数参数中，即此例中的0x0），并存在`ra`中
+* 其中`auipc ra, 0x0`计算了`PC` + `swap`地址的高20位（存在常数参数中，即此例中的0x0），并存在`ra`中
 * `jalr ra`扩展后相当于`jalr x1, ra, 0`，用上一步的结果（存在`ra`中），加上`swap`地址的低12位（存在常数参数中，即此例中的0x0）
 
 注意这里只是编译时的结果，链接时当所有符号的地址都确定后，链接器会优化函数调用的过程（链接器松弛），下面我们会看到。
