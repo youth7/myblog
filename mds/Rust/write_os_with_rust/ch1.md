@@ -502,15 +502,87 @@ shutdown now ...
 
 
 
-# 课外练习
+# 实验练习
 
-todo：代码中已完成，但本篇笔记没有更新相关内容
+实验练习中要求完成带有颜色的输出：
+
+```rust
+info!(".text [{:#x}, {:#x})", s_text as usize, e_text as usize);
+debug!(".rodata [{:#x}, {:#x})", s_rodata as usize, e_rodata as usize);
+error!(".data [{:#x}, {:#x})", s_data as usize, e_data as usize);
+```
+
+这个实验的难点有：
+
+1. Rust声明式宏的编写
+2. 如何在Rust代码中使用链接脚本中定义的符号
+
+我们先实现相关的宏，在`console.rs`中增加相关代码：
+
+```rust
+#[macro_export]
+macro_rules! println_with_color {
+    ($color: expr, $fmt: literal $(, $($arg: tt)+)?) => {
+        $crate::console::print(format_args!(concat!("\x1b[{}m", $fmt, "\x1b[0m", "\n"), $color, $($($arg)+)?));
+    }
+}
+
+#[macro_export]
+macro_rules! trace {
+    ($fmt: literal $(, $($arg: tt)+)?) => {
+        println_with_color!(90, $fmt , $($($arg)+)?);
+    }
+}
+
+//剩下的debug、info等宏不再重复，它们的区别只有调用println_with_color时的第一个传参
+```
+
+难点在于理解宏的重复语法，可以参考[这里](https://doc.rust-lang.org/reference/macros-by-example.html)，值得注意的是：
+
+* 重复的部分放在`$()`中
+* `$()`后可以有一个分隔符（也可以没有），分隔符是逗号或者分号。
+* 分隔符后是重复的次数
+
+例如`$(, $($arg: tt)+)?`
+
+* 第一个重复的部分是`, $($arg: tt)+`（这里省略了+号前的分隔符，而第一个逗号是匹配的内容的一部分），重复次数是0或1次；
+* 第二个重复的部分是`$arg: tt`，重复次数至少是1次。最为重要的是，**重复部分之间是通过分隔符连接的**，因此下列写法是正确的
+
+```rust
+println!("hi");
+println!("hi {}","hello");
+println!("hi {}","hello",);
+```
+
+声明式宏非常复杂，这里不深入探究。
 
 
 
-# 一些额外的知识
+然后修改`main.rs`中的`rust_main`函数，调用新增的宏来实现彩色打印
 
-关于链接脚本暴露出来的各种符号（例如`stext`），为何需要被extern成函数，其实隐藏了很多细节，具体看[这里](./symbol.md)的讨论截图。
+```rust
+pub fn rust_main() -> ! {
+    clear_bss();
+    extern "C" {
+        static stext : u64;//如果extern为变量，则后面还需要取地址
+        fn etext();
+        fn srodata();
+        fn erodata();
+        fn sdata();
+        fn edata();
+
+    }
+    unsafe{
+        info!(".text [{:p}, {:#x})", (&stext) , etext as usize);
+    }
+    debug!(".rodata [{:#x}, {:#x})", srodata as usize, erodata as usize);
+    error!(".data [{:#x}, {:#x})", sdata as usize, edata as usize);
+    println!("hello, power on !!");
+    panic!("oh crash !! {}","-_-!")
+} 
+```
+
+关于链接脚本暴露出来的各种符号（例如`stext`），为何需要被extern成函数，其实隐藏了很多细节，具体看[这里](./symbol.md)的讨论
 
 # 总结
 
