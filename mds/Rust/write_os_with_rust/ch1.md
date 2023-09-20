@@ -53,7 +53,7 @@ cargo build --release --target riscv64gc-unknown-none-elf
 ```assembly
 OUTPUT_ARCH(riscv)
 ENTRY(_start)/*引用了上面汇编代码中定义的全局符号_start*/
-BASE_ADDRESS = 0x80200000;/*符号定义，这个符号在后面二进制文件中可以找到*/
+BASE_ADDRESS = 0x80200000;
 
 SECTIONS
 {
@@ -298,7 +298,6 @@ Breakpoint 1, 0x0000000080200000 in stext ()
    }
    ```
    
-   
 
 
 
@@ -451,7 +450,9 @@ pub fn rust_main() -> ! {
 
 fn clear_bss() {
     extern "C" {
-        fn sbss();//将链接脚本中sbss和ebss视为函数也不是不可以，因为后面不是实施真正的调用，只是利用了地址值
+        //将链接脚本中sbss和ebss视为函数也不是不可以，因为后面不是实施真正的调用，只是利用了地址值
+        //并且extern为函数是为了方便，如果extern为静态变量，则还需要&一次取地址，具体见文末的参考
+        fn sbss();
         fn ebss();
     }
     (sbss as usize..ebss as usize).for_each(|a| {
@@ -501,5 +502,25 @@ shutdown now ...
 
 
 
-# 练习
+# 课外练习
 
+todo：代码中已完成，但本篇笔记没有更新相关内容
+
+
+
+# 一些额外的知识
+
+关于链接脚本暴露出来的各种符号（例如`stext`），为何需要被extern成函数，其实隐藏了很多细节，具体看[这里](./symbol.md)的讨论截图。
+
+# 总结
+
+开发最简易的OS内核的一般步骤是：
+
+1. 根据硬件平台规范，编写链接脚本，这是为了将各种源文件编译为**符合硬件地址空间布局的二进制**。
+2. 编写内核相关代码，包括：
+   1. 用汇编，**先初始化栈**（因为接着马上要进行函数调用了），然后调用高级语言编写的内核
+   2. 用高级语言，编写内核相关内容，例如初始化`.bss`
+
+
+
+而RISC-V平台因为多了SBI的概念，且SBI并没有链接到内核代码，因此调用SBI的真正方式并不是常规的函数调用。

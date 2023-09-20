@@ -28,7 +28,7 @@
 
 需要区分清楚编译（compile）、汇编（assembly）、链接（link）、加载（load）这4个不同的概念，它们的关系如下：
 
-![](/imgs/compile_link_load.jpg)
+![](../../imgs/compile_link_load.jpg)
 
 链接的主要内容：
 
@@ -215,14 +215,14 @@ Disassembly of section .text:
   22:	000080e7          	jalr	ra # 1e <main+0x1e>	#加载swap地址，将"低12位"加到ra中，以此为swap地址并调用swap，这个伪指令相当于jalr x1, ra, 0 
 ```
 
-这里有点奇怪的是计算`shared`地址的时候，不知道为何只包含了计算地址高20位的指令，没有包含低12位的计算。
+
 
 `auipc`+`jalr`的作用如下：
 
 * [AUIPC](https://jemu.oscc.cc/AUIPC) 与 [JALR](https://jemu.oscc.cc/JALR) 的 12 位立即数配合, 可以将控制流跳转到相对于 `PC` 的、32 位整型范围内的任意地址;
 
-* 其中`auipc ra, 0x0`计算了`PC` + `swap`地址的高20位（存在常数参数中，即此例中的0x0），并存在`ra`中
-* `jalr ra`扩展后相当于`jalr x1, ra, 0`，用上一步的结果（存在`ra`中），加上`swap`地址的低12位（存在常数参数中，即此例中的0x0）
+* 其中`auipc ra, 0x0`计算了`PC` + `swap`地址的高20位（存在常数参数中，即此例中的0x0），**并存到`ra`中**
+* `jalr ra`扩展后相当于`jalr x1, ra, 0`，用上一步的结果（存于`ra`），加上`swap`地址的低12位（存在常数参数中，即此例中的0x0）
 
 注意这里只是编译时的结果，链接时当所有符号的地址都确定后，链接器会优化函数调用的过程（链接器松弛），下面我们会看到。
 
@@ -344,7 +344,7 @@ TODO：分析上面的x86上的静态链接
 
 例如，下图是Linux在X86_64架构上的进程内存布局（虚拟地址空间），在stack和heap中间的那个区域就是lib.so（共享对象）加载后所在之处。假设程序p1启动时加载lib.so并对其中某个函数func调用地址重定位为0xFFFF。这个地址空间对p1来说是合法的，然而如果另外一个也依赖lib.so的程序p2在稍后启动，则运行到调用函数func的时很有可能会报错，因为0xFFFF对p2来说大概率是个非法地址。
 
-![](/imgs/addr_rebase_layout.jpg)
+![](../../imgs/addr_rebase_layout.jpg)
 
 > **注意：这种加载时重定位的方法会修改lib.so在物理内存中代码段中跟地址相关的数据。例如编译时因不知道func的地址会先生成`call 0x0000`这样的代码，0x0000表示先对func地址的留空。然后重定位时将地址留空的代码改为`call 0xFFFF`。如果不清楚这点是无法理解基址重置的缺陷的**）
 
@@ -366,7 +366,7 @@ TODO：分析上面的x86上的静态链接
 
 大致的流程可以参考以下图片：
 
-![](/imgs/pltgot.png)							![](/imgs/pltgot3.png)
+![](../../imgs/pltgot.png)							![](../../imgs/pltgot3.png)
 
 
 
@@ -424,7 +424,7 @@ export LD_LIBRARY_PATH=./:$LD_LIBRARY_PATH	#设置路径，以便运行时能够
 >
 > **The actual definition of the linkage model is determined by the operating system and implementation.
 > Therefore, the contents of these sections are both operating system and processor specific. (See
-> the appendix at the end of Book III.)  **
+> the appendix at the end of Book III.)**
 
 可知动态链接的模型和实现是和CPU架构以及操作系统相关的，因此我们不要拘泥于一重定位的细节，而是掌握它的核心思想。而碰到一些具体参数的时候，需要参考[RISCV专属的ELF规范](https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-elf.adoc#risc-v-elf-specification)
 
@@ -485,7 +485,7 @@ Dynamic section at offset 0xe60 contains 22 entries:
 * `DT_PLTRELSZ`：表明所有relocation entries的总大小。
 
 * `DT_PLTREL`：`DT_JMPREL`所指向的relocation entries的类型（`DT_REL` 或 `DT_RELA`），所有relocation entries的类型都是相同的。
-* `DT_RELA`：一个**relocation table **的地址，重定位表中的每一项都附带有addends（用于地址修正）。如果此项出现的话，`DT_RELASZ` 和`DT_RELAENT` 也必须出现。
+* `DT_RELA`：一个**relocation table**的地址，重定位表中的每一项都附带有addends（用于地址修正）。如果此项出现的话，`DT_RELASZ` 和`DT_RELAENT` 也必须出现。
   * `DT_REL` ：类似`DT_RELA`，但不附带addends
   
 
@@ -499,7 +499,7 @@ readelf -S libfn.so  | grep rela
   [ 8] .rela.plt         RELA             0000000000000450  00000450
 ```
 
-所以我们可以推理**`DT_JMPREL`和`DT_RELA`分别指向了`.rela.plt`和`.rela.dyn`**。
+所以我们可以推理：**`DT_JMPREL`和`DT_RELA`分别指向了`.rela.plt`和`.rela.dyn`**。
 
 
 
