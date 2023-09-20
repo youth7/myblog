@@ -562,7 +562,7 @@ ELF规范1.2中是这样定义的`Offset`的
 >
 > For an executable or shared object, the value indicates the virtual  address of the storage unit affected by the relocation. This information makes the relocation entries more useful for the runtime linker.
 
-可知**重定位表中的都是虚拟地址**。而类型为`R_RISCV_64`或`R_RISCV_RELATIVE`6个地址，其范围是0x2020~0x2050，在下面关于`.got`的分析中我们可以看到它的虚拟地址范围是0x2010~0x2058，正好能够覆盖重定位表中那6个地址。
+可知**重定位表中的都是虚拟地址**。而类型为`R_RISCV_64`或`R_RISCV_RELATIVE`6个地址，其范围是0x2020 ~ 0x2050，在下面关于`.got`的分析中我们可以看到它的虚拟地址范围是0x2010~0x2058，正好能够覆盖重定位表中那6个地址。
 
 
 
