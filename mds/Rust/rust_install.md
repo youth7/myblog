@@ -8,7 +8,7 @@
   * 可以通过`vs_BuildTools.exe`来顺带安装
 * MSVC：
   * 全称是The Microsoft Visual C++ compiler and libraries toolset
-  * 在某些场合有时候又指Windows上的其中一种ABI，另外一种是GNU ABI
+  * 在某些场合有时候又指Windows上的其中一种ABI（另外一种是GNU ABI）
   * 早期时候MSVC是上述三者的合体，因为当时它们都是捆绑在一起安装的，后来分离之后MSCV这个概念其实已经名存实亡，成为一个历史名词。
 
 
