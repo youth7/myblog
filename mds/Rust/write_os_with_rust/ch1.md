@@ -48,6 +48,8 @@ cargo build --release --target riscv64gc-unknown-none-elf
 1. 了解链接、链接脚本、链接程序`ld`的知识
 2. 了解Rust如何调用链接脚本，涉及cargo和rustc的用法
 
+> 不编译为地址无关在[这里](https://rcore-os.cn/rCore-Tutorial-Book-v3/chapter2/3batch-system.html#)的评论区有解释了，大意是说，从技术上来讲是可以编译成PIE，但这需要额外的工作徒增复杂度。
+
 链接脚本的内容如下：
 
 ```assembly
@@ -596,3 +598,7 @@ pub fn rust_main() -> ! {
 
 
 而RISC-V平台因为多了SBI的概念，且SBI并没有链接到内核代码，因此调用SBI的真正方式并不是常规的函数调用。
+
+* 链接的话，调用者能够通过访问函数和变量的方式来使用SBI中的功能，前提是SBI需要导出相关对象。
+
+* 而通过`ecall`的指令调用，原理应该就是SBI接管了系统并初始化了中断向量表，后续再补充SBI相关细节。
