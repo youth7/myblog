@@ -308,7 +308,9 @@ SECTIONS
 
 ### [ENTRY](https://sourceware.org/binutils/docs/ld/Entry-Point.html#index-ENTRY_0028symbol_0029)
 
-定义了程序的入口为Rust代码中定义的函数`Reset`。链接器会抛弃未使用的节，如果脚本中没有这一行则链接器会认为`Reset`未被使用从而抛弃之。
+定义了程序的入口为Rust代码中定义的函数`Reset`。链接器会抛弃未使用的节，**如果脚本中没有这一行则链接器会认为`Reset`未被使用从而抛弃之**
+
+> 注意：这个点非常重要，在rCore教程的[ch2中](../write_os_with_rust/ch2.md)就出现了这个情况，如果在源码中定义了程序的入口函数，但这个函数从未被其它地方使用（因为是入口函数），则链接器会直接抛弃这个函数（即使在rust源码中对它进行一些属性标注也无法阻止，因为这是链接器的行为，但名为`_start`的入口函数在GCC下似乎是一个例外，[这里](https://stackoverflow.com/questions/67918256/rust-custom-bare-metal-compile-target-linker-expects-start-symbol-and-discar)有一个讨论），这样就会导致程序的入口并非如你在源码中
 
 `Reset`就是在系统重置时运行的第一个函数，因此指定它为入口也是合理的。注意`ENTRY`只是在ELF中标明了了程序的入口（通过`e_entry`），在有OS的系统中OS会读取`e_entry`并跳到相应的地方执行。但在裸机环境要让程序真的成为机器重置时候第一个被执行的程序，还需要符合CPU的要求。具体到本文的话，就是要设置好vector_table。开发人员有必要让vector_table中的`Reset`作为`ENTRY`的参数，这样两处关于开机后的入口就一致了，否则会让人困惑
 
