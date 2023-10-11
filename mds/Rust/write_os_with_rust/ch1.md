@@ -1,3 +1,9 @@
+# 环境说明
+
+* OS：Ubuntu 20.04
+* Rust：rustc 1.74.0-nightly
+* QEMU：qemu-riscv64 version 7.2.0
+
 # 第一条内核指令
 
 这节的内容是**编写一个最为简单的从裸机上启动的程序**，一定要先参考[这里](../embed_with_rust/embedonomicon.md)的前几章，否则卡点太多晕头转向。裸机运行程序的流程是：
