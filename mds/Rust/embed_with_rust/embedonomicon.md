@@ -318,7 +318,7 @@ SECTIONS
 
 链接器会从`entry`命令指定的函数开始，从目标文件中递归搜索所有用到的符  号，一旦所有符合解析完成了就停止，即使此时还有目标文件未被搜索。`EXTERN`的作用是强制链接器去继续解析被`EXTERN`作为参数的符号，例如本节中的`RESET_VECTOR`。
 
-其实不太明白为何要多用一个变量`RESET_VECTOR`而不是直接使用`Reset`这个符号，`Reset`已经包含了足够的信息用来填充vector table（ 在下一小结我们会通过检查符号表来印证这个结论），唯一的可能性是使用`RESET_VECTOR`会使得链接脚本更加容易编写？（因为`Reset`作为一个函数，它最终会被编译到`.text`节中，但我们后续又需要使用它的地址，因此需要有一个变量来保存这个地址，这个变量就是`RESET_VECTOR`，注意它是被编译到`.vector_table.reset_vector`节）
+其实不太明白为何要多用一个变量`RESET_VECTOR`而不是直接使用`Reset`这个符号，`Reset`已经包含了足够的信息用来填充vector table（ 在下一小结我们会通过检查符号表来印证这个结论），个人猜测是因为`Reset`作为一个函数，它最终会被编译到`.text`节中，但我们后续又需要使用它的地址，因此需要有一个变量来保存这个地址，这个变量就是`RESET_VECTOR`，注意它是被编译到`.vector_table.reset_vector`节）
 
 
 
@@ -453,7 +453,7 @@ Symbol table '.symtab' contains 5 entries:
 从上可知：
 
 * `Reset`位于`.text`，其value和size分别是9和10，表示了这个函数在`.text`中的偏移量和大小（注意偏移量9和我们前面讨论的地址0x09000000是一致的）
-* `RESET_VECTOR`位于`.vector_table`，其value和size分别是4和4，表示了这个符号在`.vector_table`中的偏移量和大小，具体的值还需要进一步读取。
+* `RESET_VECTOR`位于`.vector_table`，其value和size分别是4和4，表示这个符号在`.vector_table`中偏移量和大小都是4，结合上面`rust-objdump`的纯输出，我们知道这个位置的值就是0x00000009，证明了`RESET_VECTOR`的值确实符合预期
 
 
 
