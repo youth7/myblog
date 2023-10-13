@@ -1,8 +1,11 @@
-汇编器中`as`的Directives见：https://sourceware.org/binutils/docs/as/Pseudo-Ops.html
+## 杂项
 
-RISCV专用的Directives见：https://sourceware.org/binutils/docs/as/RISC_002dV_002dDirectives.html
+* 汇编器中`as`的Directives见：https://sourceware.org/binutils/docs/as/Pseudo-Ops.html
 
-寄存器定义见：https://msyksphinz-self.github.io/riscv-isadoc/html/regs.html
+* RISCV专用的Directives见：https://sourceware.org/binutils/docs/as/RISC_002dV_002dDirectives.html
+
+* 寄存器定义见：https://msyksphinz-self.github.io/riscv-isadoc/html/regs.html
+* 所有RISCV相关的规范见[这里](https://wiki.riscv.org/display/HOME/RISC-V+Technical+Specifications)或者[这里](https://github.com/riscv-non-isa)，中文版翻译见[这里](https://ica123.com/archives/5282)
 
 
 
@@ -48,41 +51,176 @@ RISCV专用的Directives见：https://sourceware.org/binutils/docs/as/RISC_002dV
 
 
 
+## 指令格式说明
+<table class="wikitable" style="text-align:center;">
+<caption>32-bit RISC-V instruction formats
+</caption>
+<tbody><tr>
+<th rowspan="2">Format
+</th>
+<th colspan="32">Bit
+</th></tr>
+<tr>
+<th>31</th>
+<th>30</th>
+<th>29</th>
+<th>28</th>
+<th>27</th>
+<th>26</th>
+<th>25</th>
+<th>24</th>
+<th>23</th>
+<th>22</th>
+<th>21</th>
+<th>20</th>
+<th>19</th>
+<th>18</th>
+<th>17</th>
+<th>16</th>
+<th>15</th>
+<th>14</th>
+<th>13</th>
+<th>12</th>
+<th>11</th>
+<th>10</th>
+<th>9</th>
+<th>8</th>
+<th>7</th>
+<th>6</th>
+<th>5</th>
+<th>4</th>
+<th>3</th>
+<th>2</th>
+<th>1</th>
+<th>0
+</th></tr>
+<tr>
+<td style="background: #ececec; color: black; font-weight: bold; vertical-align: middle; text-align: left;" class="table-rh">Register/register
+</td>
+<td colspan="7" style="background:#FFCBDB;">funct7
+</td>
+<td colspan="5" style="background:#dfd;">rs2
+</td>
+<td colspan="5" style="background:#dfd;">rs1
+</td>
+<td colspan="3" style="background:#FFCBDB;">funct3
+</td>
+<td colspan="5" style="background:#ffb7b7;">rd
+</td>
+<td colspan="7" style="background:#FFFDD0;"><a href="/wiki/Opcode" title="Opcode">opcode</a>
+</td></tr>
+<tr>
+<td style="background: #ececec; color: black; font-weight: bold; vertical-align: middle; text-align: left;" class="table-rh">Immediate
+</td>
+<td colspan="12" style="background:#def;">imm[11:0]
+</td>
+<td colspan="5" style="background:#dfd;">rs1
+</td>
+<td colspan="3" style="background:#FFCBDB;">funct3
+</td>
+<td colspan="5" style="background:#ffb7b7;">rd
+</td>
+<td colspan="7" style="background:#FFFDD0;">opcode
+</td></tr>
+<tr>
+<td style="background: #ececec; color: black; font-weight: bold; vertical-align: middle; text-align: left;" class="table-rh">Upper immediate
+</td>
+<td colspan="20" style="background:#def;">imm[31:12]
+</td>
+<td colspan="5" style="background:#ffb7b7;">rd
+</td>
+<td colspan="7" style="background:#FFFDD0;">opcode
+</td></tr>
+<tr>
+<td style="background: #ececec; color: black; font-weight: bold; vertical-align: middle; text-align: left;" class="table-rh">Store
+</td>
+<td colspan="7" style="background:#def;">imm[11:5]
+</td>
+<td colspan="5" style="background:#dfd;">rs2
+</td>
+<td colspan="5" style="background:#dfd;">rs1
+</td>
+<td colspan="3" style="background:#FFCBDB;">funct3
+</td>
+<td colspan="5" style="background:#def;">imm[4:0]
+</td>
+<td colspan="7" style="background:#FFFDD0;">opcode
+</td></tr>
+<tr>
+<td style="background: #ececec; color: black; font-weight: bold; vertical-align: middle; text-align: left;" class="table-rh">Branch
+</td>
+<td style="background:#def;">[12]
+</td>
+<td colspan="6" style="background:#def;">imm[10:5]
+</td>
+<td colspan="5" style="background:#dfd;">rs2
+</td>
+<td colspan="5" style="background:#dfd;">rs1
+</td>
+<td colspan="3" style="background:#FFCBDB;">funct3
+</td>
+<td colspan="4" style="background:#def;">imm[4:1]
+</td>
+<td style="background:#def;">[11]
+</td>
+<td colspan="7" style="background:#FFFDD0;">opcode
+</td></tr>
+<tr>
+<td style="background: #ececec; color: black; font-weight: bold; vertical-align: middle; text-align: left;" class="table-rh">Jump
+</td>
+<td style="background:#def;">[20]
+</td>
+<td colspan="10" style="background:#def;">imm[10:1]
+</td>
+<td style="background:#def;">[11]
+</td>
+<td colspan="8" style="background:#def;">imm[19:12]
+</td>
+<td colspan="5" style="background:#ffb7b7;">rd
+</td>
+<td colspan="7" style="background:#FFFDD0;">opcode
+</td></tr>
+</tbody></table>
 
 
-## Floating Point Registers
+* `opcode` (7 bits): Partially specifies which of the 6 types of *instruction formats*.
+* `funct7`, and `funct3` (10 bits): These two fields, further than the *opcode* field, specify the operation to be performed.
+* `rs1`, `rs2`, or `rd` (5 bits): Specifies, by index,  the register, resp., containing the first operand (i.e., source  register), second operand, and destination register to which the  computation result will be directed.
 
-| Register | ABI Name | Description                | Saver  |
-| -------- | -------- | -------------------------- | ------ |
-| f0       | ft0      | FP temporaries             | Caller |
-| f1       | ft1      | FP temporaries             | Caller |
-| f2       | ft2      | FP temporaries             | Caller |
-| f3       | ft3      | FP temporaries             | Caller |
-| f4       | ft4      | FP temporaries             | Caller |
-| f5       | ft5      | FP temporaries             | Caller |
-| f6       | ft6      | FP temporaries             | Caller |
-| f7       | ft7      | FP temporaries             | Caller |
-| f8       | fs0      | FP saved registers         | Callee |
-| f9       | fs1      | FP saved registers         | Callee |
-| f10      | fa0      | FP arguments/return values | Caller |
-| f11      | fa1      | FP arguments/return values | Caller |
-| f12      | fa2      | FP arguments               | Caller |
-| f13      | fa3      | FP arguments               | Caller |
-| f14      | fa4      | FP arguments               | Caller |
-| f15      | fa5      | FP arguments               | Caller |
-| f16      | fa6      | FP arguments               | Caller |
-| f17      | fa7      | FP arguments               | Caller |
-| f18      | fs2      | FP saved registers         | Callee |
-| f19      | fs3      | FP saved registers         | Callee |
-| f20      | fs4      | FP saved registers         | Callee |
-| f21      | fs5      | FP saved registers         | Callee |
-| f22      | fs6      | FP saved registers         | Callee |
-| f23      | fs7      | FP saved registers         | Callee |
-| f24      | fs8      | FP saved registers         | Callee |
-| f25      | fs9      | FP saved registers         | Callee |
-| f26      | fs10     | FP saved registers         | Callee |
-| f27      | fs11     | FP saved registers         | Callee |
-| f28      | ft8      | FP temporaries             | Caller |
-| f29      | ft9      | FP temporaries             | Caller |
-| f30      | ft10     | FP temporaries             | Caller |
-| f31      | ft11     | FP temporaries             | Caller |
+
+
+### Loads and Stores
+
+$$
+\left\{
+	\begin{aligned}
+		&\underline{\textbf{l}}oad \\
+		&\underline{\textbf{s}}tore \\
+	\end{aligned}
+\right\}
+\left\{
+	\begin{aligned}
+		&\underline{\textbf{b}}yte \\
+		&\underline{\textbf{h}}alfword \\
+		&\underline{\textbf{w}}ord \\
+	\end{aligned}
+\right\}
+$$
+
+$$
+&\underline{\textbf{l}}oad
+\left\{
+	\begin{aligned}
+		&\underline{\textbf{b}}yte \\
+		&\underline{\textbf{h}}alfword
+	\end{aligned}
+\right\}
+\underline{\textbf{u}}nsigned
+$$
+
+
+
+
+
+
+
