@@ -149,8 +149,10 @@ fn main() -> i32 {
 
 这里有点奇怪，虽然我们没有指定编译用户代码，但可能根据[Package Layout](https://doc.rust-lang.org/cargo/guide/project-layout.html#package-layout)的约定，`src/bin`下面的客户代码**都会被编译为可执行文件**，因为这个package属于多个bin crate+1个lib crate的类型，每一个用户代码就是一个bin crate。因为它们都依赖于`lib.rs`所以`lib.rs`也**参与到每一个用户代码的编译中**，具体作用包括：
 
-	1. 生成`_start`符号并将其指定为入口（即地址为0x80400000），关于`_start`作为入口的一些细节见[这里中ENTRY的相关章节](../embed_with_rust/embedonomicon.md)。
-	1. `_start`会调用`lib.rs`中定义为弱符号的`main`，这意味着如果客户代码中包含`main`则使用客户提供的，否则使用`lib.rs`中默认的`main`
+* 生成`_start`符号并将其指定为入口（即地址为0x80400000），关于`_start`作为入口的一些细节见[这里中ENTRY的相关章节](../embed_with_rust/embedonomicon.md)。
+
+* `_start`会调用`lib.rs`中定义为弱符号的`main`，这意味着如果客户代码中包含`main`则使用客户提供的，否则使用`lib.rs`中默认的`main`
+
 
 ```rust
 ...
@@ -170,10 +172,11 @@ pub extern "C" fn _start() -> ! {
 
 ## 编译和裁剪
 
-使用命令`cargo build --release --target riscv64gc-unknown-none-elf`编译，再用`readelf -s target/riscv64gc-unknown-none-elf/release/01store_fault | grep _start`检查一下，输出如下：
+运行以下命令编译并检查
 
 ```bash
-5151: 0000000080400000   124 FUNC    GLOBAL DEFAULT    1 _start
+cargo build --release --target riscv64gc-unknown-none-elf
+readelf -s target/riscv64gc-unknown-none-elf/release/01store_fault | grep _start
 ```
 
 找到`_start`并且地址值为0x80400000，说明用户代码已经链接到`lib.rs`了。经过上述步骤，我们的客户代码已经就绪，等待后续OS的加载和运行。
