@@ -1,8 +1,12 @@
-# 环境说明
+# 说明
 
 * OS：Ubuntu 20.04
 * Rust：rustc 1.74.0-nightly
 * QEMU：qemu-riscv64 version 7.2.0
+
+相关代码见[这里](https://github.com/youth7/write-os-with-rust)，为了保持简单和教程源码有一些区别。
+
+
 
 # 第一条内核指令
 

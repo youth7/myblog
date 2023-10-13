@@ -82,7 +82,7 @@ cargo-embed #这里缺失了版本号信息，这是因为bug(https://github.com
 
 可参考下图理解上述的层级关系：
 
-![](/imgs/rust_layers.svg)
+![](../../../imgs/rust_layers.svg)
 
 
 
