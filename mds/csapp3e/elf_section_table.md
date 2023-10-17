@@ -1,6 +1,7 @@
 # 节表（section header table）
 
-> [https://en.wikipedia.org/wiki/Executable_and_Linkable_Format](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)完成、细致、直观地用表格描述了节表的结构，强烈推荐
+> * [https://en.wikipedia.org/wiki/Executable_and_Linkable_Format](https://en.wikipedia.org/wiki/Executable_and_Linkable_Format)完成、细致、直观地用表格描述了节表的结构，强烈推荐
+> * ELF中有一些内容是平台、OS指定的，因此确定某个字段的含义时候，可能需要先查询ELF规范，操作系统（Linux）规范，以及平台（RISCV）规范
 
 
 
@@ -23,20 +24,20 @@ typedef struct {
 } Elf64_Shdr;
 ```
 
-这些元信息包括节的以下内容：
+每一条记录包括节的以下内容：
 
-| 名称           | 意义                                           |
-| -------------- | ---------------------------------------------- |
-| sh_name        | 名称                                           |
-| **sh_type**    | 类型，具体意义见下表                           |
-| sh_flags       | 表示该节的某项属性是否打开，这些属性具体见下表 |
-| sh_addr        | 执行时的虚拟地址                               |
-| **sh_offset**  | 在ELF文件中的偏移量                            |
-| **sh_size**    | 大小                                           |
-| sh_link        | 与该节有关系的另外一个节的索引                 |
-| sh_info        | 一些额外的信息，需要配合sh_link一起解读        |
-| sh_addralign   | 该节对齐时的单位                               |
-| **sh_entsize** | 如果该节是表格类型的话，表格中每一条记录的大小 |
+| 名称           | 意义                                                  |
+| -------------- | ----------------------------------------------------- |
+| sh_name        | 在`.shstrtab`中偏移量                                 |
+| **sh_type**    | 类型，具体意义见下表                                  |
+| sh_flags       | 表示该节的某项属性是否打开，这些属性具体见下表        |
+| sh_addr        | 执行时的虚拟地址                                      |
+| **sh_offset**  | 在ELF文件中的偏移量                                   |
+| **sh_size**    | 大小                                                  |
+| sh_link        | 与该节有关的另外一个节的索引，它的意义依赖于`sh_type` |
+| sh_info        | 与该节有关的额外的信息，它的意义依赖于`sh_type`       |
+| sh_addralign   | 该节对齐时的单位                                      |
+| **sh_entsize** | 如果该节是表格类型的话，表格中每一条记录的大小        |
 
 
 
@@ -50,23 +51,39 @@ typedef struct {
 | SHT_PROGBITS | 1          | 节包含代码数据                                               |
 | SHT_SYMTAB   | 2          | **符号表，非常重要**                                         |
 | SHT_STRTAB   | 3          | **字符串表，非常重要**                                       |
-| SHT_RELA     | 4          |                                                              |
+| SHT_RELA     | 4          | 包含explicit addends的重定位表                               |
 | SHT_HASH     | 5          |                                                              |
-| SHT_DYNAMIC  | 6          |                                                              |
-| SHT_NOTE     | 7          |                                                              |
-| SHT_NOBITS   | 8          |                                                              |
-| SHT_REL      | 9          |                                                              |
-| SHT_SHLIB    | 10         |                                                              |
-| SHT_DYNSYM   | 11         |                                                              |
-| SHT_LOPROC   | 0x70000000 |                                                              |
+| SHT_DYNAMIC  | 6          | 动态链接相关，一个ELF一般只有一个这种类型的节，但将来可能放松这个限制。 |
+| SHT_NOTE     | 7          | 关于节的一些信息，Linux上的定义见[这里](https://refspecs.linuxbase.org/elf/gabi4+/ch5.pheader.html#note_section) |
+| SHT_NOBITS   | 8          | 说明当前节在ELF文件中不占据空间                              |
+| SHT_REL      | 9          | 普通重定位表                                                 |
+| SHT_SHLIB    | 10         | 预留，暂时没有意义                                           |
+| SHT_DYNSYM   | 11         | 符号表                                                       |
+| SHT_LOPROC   | 0x70000000 | 说明[SHT_LOPROC,   SHT_HIPROC]这个区间内的解析是和处理器相关的 |
 | SHT_HIPROC   | 0x7fffffff |                                                              |
-| SHT_LOUSER   | 0x80000000 |                                                              |
+| SHT_LOUSER   | 0x80000000 | 说明[SHT_HIUSER,    SHT_LOUSER]这个区间内的解析是和应用程序相关的 |
 | SHT_HIUSER   | 0xffffffff |                                                              |
 
 其中有两组比较相似需要解释一下：
 
 * `SHT_SYMTAB` 和`SHT_DYNSYM`：前者包含全部符号，后者只包含动态链接时候需要的符号，是前者的一个子集。原因是前者很多信息在动态链接用不上。
-* `SHT_REL`和`SHT_RELA`：都是重定位节，区别是后者带有explicit addends（什么东西？）
+* `SHT_REL`和`SHT_RELA`：都是重定位节，区别是后者带有explicit addends
+
+
+
+关于explicit addends的讨论可以参考，
+
+* [[Relocation addend in ELF files - Elf64_Rel vs Elf64_Rela?](https://stackoverflow.com/questions/60462386/relocation-addend-in-elf-files-elf64-rel-vs-elf64-rela)](https://stackoverflow.com/questions/60462386/relocation-addend-in-elf-files-elf64-rel-vs-elf64-rela)
+
+* [Re: Help about 'addend' of The ELF specification](https://gcc.gnu.org/legacy-ml/gcc-help/2007-08/msg00193.html)
+
+* https://bottomupcs.sourceforge.net/csbu/x3735.htm
+
+  > an addend is simply something that should be added to the fixed up address to find the correct address.  For example, if the relocation is for      the symbol `i` , because the original code is doing something like `i[8]` , the addend will be set to 8.  This means "find the address of `i`, and go 8 past it"
+
+* 在《程序员的自我修养》中，这个属性的作用是表示当前指令的长度，需要加上当前指令的长度才能得到最终的地址
+
+
 
 
 
@@ -85,17 +102,17 @@ typedef struct {
 
 ## `sh_link`和`sh_info`
 
-`sh_link`和`sh_info`的解读和`sh_type`相关，具体关系如下：
+二者的解析和`sh_type`相关，具体关系如下：
 
-| sh_type                 | sh_link                                                                           | sh_info                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| SHT_DYNAMIC             | The section header index of the **string table** used by entries in the section.  | 0                                                                                     |
-| SHT_HASH                | The section header index of the **symbol table** to which the hash table applies. | 0                                                                                     |
-| SHT_REL 或SHT_RELA       | The section header index of the **associated symbol table**.                      | The section header index of the section to which the relocation applies               |
-| SHT_SYMTAB 或 SHT_DYNSYM | The section header index of the **associated string table**.                      | One greater than the symbol table index of the last local symbol (binding STB_LOCAL). |
-| 其它                      | SHN_UNDEF                                                                         | 0                                                                                     |
+| sh_type                  | sh_link                                                      | sh_info                                                      |
+| ------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| SHT_DYNAMIC              | The section header index of the **string table** used by entries in the section. | 0                                                            |
+| SHT_HASH                 | The section header index of the **symbol table** to which the hash table applies. | 0                                                            |
+| SHT_REL 或SHT_RELA       | The section header index of the **associated symbol table**. | The section header index of the section to which the relocation applies |
+| SHT_SYMTAB 或 SHT_DYNSYM | **操作系统定义**                                             | **操作系统定义**                                             |
+| 其它                     | SHN_UNDEF                                                    | 0                                                            |
 
-简单来说，sh_link指向了和当前节有关联的其它节（例如符号表或者字符串）
+简单来说，`sh_link`指向了和当前节有关联的其它节（例如符号表或者字符串），而`sh_info`则包含了当前节的一些其它信息。SHT_SYMTAB 或 SHT_DYNSYM在Linux上的定义见[这里](https://refspecs.linuxbase.org/elf/gabi4+/ch4.sheader.html#sh_link)。
 
 
 
