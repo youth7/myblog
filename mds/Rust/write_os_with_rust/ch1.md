@@ -1,10 +1,10 @@
 # 说明
 
 * OS：Ubuntu 20.04
-* Rust：rustc 1.74.0-nightly
+* Rust：rustc 1.75.0-nightly
 * QEMU：qemu-riscv64 version 7.2.0
 
-相关代码见[这里](https://github.com/youth7/write-os-with-rust)，为了保持简单和教程源码有一些区别。
+相关代码见[这里](https://github.com/youth7/write-os-with-rust/tree/ch1)，为了保持简单和教程源码有一些区别。
 
 
 
@@ -273,7 +273,7 @@ Breakpoint 1, 0x0000000080200000 in stext ()
 
    ```assembly
    .section .text.entry	#定义名为.text.entry的section，它稍后会被链接脚本引用
-   .globl _start	#定义全局符号_start，使其对外可见，它是一个地址，稍后会被链接脚本引用
+   .globl _start	#定义全局符号_start，使其对链接脚本可见，它是一个地址，稍后会被链接脚本引用
    _start:
        la sp, boot_stack_top	#设置栈顶值，boot_stack_top此时是指向栈顶的
        call rust_main			#上面设置好sp之后，才能正常调用rust程序
@@ -285,7 +285,16 @@ Breakpoint 1, 0x0000000080200000 in stext ()
    boot_stack_top:			#栈顶
    ```
 
-   > 按道理来说栈是无需在ELF文件中指定的，这里设置把栈放置到`.bss`中，有点不好理解。可能这是裸机编程而不是普通的应用程序那种面向虚拟地址空间的编程？
+   编译上述文件会在ELF中生成一个名为`.bss.stack`的节作为程序调用时的栈。栈空间是编译期就生成了，因此`boot_stack_top`在编译时就固定了，所以：
+
+   1. `la sp, boot_stack_top`在编译时是已知的
+   2. 在运行时，当执行`call rust_main`指令的时候，栈虽然尚未初始化，但是地址范围是确定的的
+
+   >  这里的疑问是，只要在内存中选一个空余的空间作为栈就可以，等系统启动的时候修改SP指向这个空间就完事了，没必要将它硬编码到ELF文件中作为系统内核的一部分，这样做只会增加内核镜像的大小。或许将内核的栈、数据、代码作为整体打包在一起，在概念上能够和用户空间比较好地区分出来。
+
+   
+
+   
 
 2. 通过Rust代码初始化`.bss`中的内容
 
