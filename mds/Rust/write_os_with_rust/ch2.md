@@ -8,7 +8,7 @@
   * 加载并运行用户代码
   * 实现从U trap到S并返回的一系列准备和善后工作
 
-这一章有相当多关键而又令人迷惑的小细节，了解清楚每个部分能打通很多关键的经络。OS的代码和用户代码是两个独立的package，并没有用workspace将它们统一管理，原因是它们之间的关联很少，强行用workspace只会增加复杂度。
+这一章有相当多关键而又令人迷惑的小细节，了解清楚每个部分能打通很多关键的经络。这一章的亮点是在rust中的package中，如何去包含多个bin crate和一个lib crate。
 
 # 实现用户代码
 
@@ -181,20 +181,43 @@ readelf -s target/riscv64gc-unknown-none-elf/release/01store_fault | grep _start
 
 找到`_start`并且地址值为0x80400000，说明用户代码已经链接到`lib.rs`了。经过上述步骤，我们的客户代码已经就绪，等待后续OS的加载和运行。
 
-
-
-
-
 ## 参考：
 
-* [lib.rs和main.rs的关系](https://stackoverflow.com/questions/57756927/rust-modules-confusion-when-there-is-main-rs-and-lib-rs)。总结就是，将`lib.rs`当做其它第三方库对待（直接通过`use`引入）就是了。
+* [lib.rs和main.rs的关系](https://stackoverflow.com/questions/57756927/rust-modules-confusion-when-there-is-main-rs-and-lib-rs)，总结就是，将`lib.rs`当做其它第三方库对待（直接通过`use`引入）就是了。
 
 # 实现OS代码
 
-## 实现system call本身
+这部分的关键点有：
+
+1. 理解第一个程序是如何被加载并运行的，关键在于加载后如何设置EPC寄存器
+2. 在程序正常/异常结束后，OS是如何切换下一个程序的（也和EPC寄存器的设置相关）
+
+
+
+## 一些基础功能变动
+
+本章是在ch1的基础上对OS改造增加批处理的功能，同时对一些基础模块进行了改造使得代码更加精简：
+
+1. SBI调用：ch2通过引入[sbi-rt](https://docs.rs/sbi-rt/0.0.2/sbi_rt/index.html)实现，ch1是内联汇编中调用`ecall`指令实现
+2. 日志打印：ch2引入了通用的日志框架[log](https://docs.rs/log/latest/log/)，个人认为这不是必要的，沿用ch1的`console.rs`即可
+
+总之，第一步是根据ch2的代码稍微改造一下ch1，使其能够运行起来，在此基础上实现后续的批量运行任务的功能
+
+
+
+
+
+
 
 ## 加载并运行用户代码
 
+按照一般的理解，OS加载并运行程序需要我们把编译好的程序放在某个路径下，然后运行这个程序。但我们目前的系统非常原始连文件系统都没有，因此只能将用户程序链接到OS中，运行时候再加载到特定的地方开始。
+
+
+
+
+
+## 实现system call本身
 ## 实现从U trap到S并返回的一系列准备和善后工作
 
 
@@ -211,5 +234,5 @@ readelf -s target/riscv64gc-unknown-none-elf/release/01store_fault | grep _start
 
 1. 因为Trap并不是普通的函数调用，因此调用的双方并没有遵循调用约定？
 2. 内核中定义的栈和链接文件中的栈有什么区别
-3. 
+3. 如何禁止U模式私自trap到S模式然后做超越权限的事情，原理应该就是SBI接管了系统并初始化了中断向量表？
 
