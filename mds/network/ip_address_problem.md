@@ -12,8 +12,9 @@ server.on("request", (req, res)=> {
 });
 ```
 写完后用Postman测试了一下  
-![ip_address_issue.jpg](/imgs/ip_address_issue.jpg)  
+![ip_address_issue.jpg](../../imgs/ip_address_issue.jpg)  
 输出一切正常，马上提交推送代码让前端对接。前端拉取代码在本地运行之后发现请求接口会报错，具体表现是：**按照上面截图的方式用Postman调用接口的话一切正常，用手写的程序调用报错**。例如用以下前端代码调用接口就报错
+
 ```JS
 //前端代码
 var request= new XMLHttpRequest();
@@ -55,9 +56,10 @@ Error: Parse Error
     at TCP.onStreamRead (VM74 stream_base_commons.js:150)
 ```
 马上debug进去看看是怎么回事  
-![ip_address_issue2.jpg](/imgs/ip_address_issue2.jpg)  
+![ip_address_issue2.jpg](../../imgs/ip_address_issue2.jpg)  
 
 447行的`var ret = parser.execute(d);`报错，那很明显是服务端发送的数据有问题了，从截图上看`d`为字符串`HEART`。这明显不是我的服务端的输出，难不成有另外一个服务跑在4000端口？但如果这样的话会端口冲突，服务端启动会失败更不要说对外服务了，但是Postman请求服务却又是正常的。当时的情况总结就是：
+
 * server.js启动了服务端
 * Postman可以正常访问服务端
 * client.js不可以正常访问服务端
@@ -70,7 +72,6 @@ TCP    127.0.0.1:4000         0.0.0.0:0              LISTENING       4836
 PS C:\Users\hehe> tasklist|findstr "4836"
 FoxitProtect.exe              4836 Services                   0      6,472 K
 ```
-
 
 原来是Foxit阅读器的服务占用4000端口造成冲突，改掉server.js监听的端口之后一切正常。  
 问题依然解决了，但是我在这个过程中究竟犯了什么错误，为什么会犯这样的错误？为何会出现Postman可以访问但是client.js不能访问的现象？
@@ -86,15 +87,16 @@ FoxitProtect.exe              4836 Services                   0      6,472 K
 > If host is omitted, the server will accept connections on the unspecified IPv6 address (::) when IPv6 is available, or the unspecified IPv4 address (0.0.0.0) otherwise.  
 
 **也就是说如果不制定参数`host`的话，就会使用IPv6的地址(::)或者IPv4的地址(0.0.0.0)**，于是我重新将server.js启动，然后执行命令
+
 ```bash
  C:\Users\hehe> netstat -aon|findstr "4000"
   TCP    0.0.0.0:4000           0.0.0.0:0              LISTENING       13176
   TCP    127.0.0.1:4000         0.0.0.0:0              LISTENING       4836
 ```
 server.js在0.0.0.0上监听4000端口，它和127.0.0.1上监听相同端口的服务是不会冲突的。至此我终于发现了自己知识的盲点，就是我对以下四者的关系混淆不清（工作多年还不清楚这个问题真是令人惭愧，脸红中......）
-* localhost（注意这是一个域名）
-* 127.0.0.1
-* 0.0.0.0
+* localhost（这是一个域名，在我的机器里会被解析到127.0.0.1）
+* 127.0.0.1（这是loopback网卡的ip）
+* 0.0.0.0（见[这里](https://en.wikipedia.org/wiki/0.0.0.0)，在本文中表示[INADDR_ANY](https://stackoverflow.com/questions/16508685/understanding-inaddr-any-for-socket-programming) ，即绑定到所有网卡）
 * 本机的真实ip，例如192.168.1.64
 
 关于它们的详细区别请看这里
@@ -108,4 +110,14 @@ server.js在0.0.0.0上监听4000端口，它和127.0.0.1上监听相同端口的
 * [Socket options SO_REUSEADDR and SO_REUSEPORT, how do they differ? Do they mean the same across all major operating systems?](https://stackoverflow.com/questions/14388706/socket-options-so-reuseaddr-and-so-reuseport-how-do-they-differ-do-they-mean-t)  
 * [SO_REUSEADDR与SO_REUSEPORT平台差异性与测试](https://www.cnblogs.com/xybaby/p/7341579.html)    
 
-总之这又是一个隐蔽的坑，在不同的操作系统上`SO_REUSEADDR`具有不同的意义。而在windows上正是因为开启了`SO_REUSEADDR`才使得0.0.0.0:4000和127.0.0.1:4000不会冲突
+
+
+回到一开始的问题：
+
+	0. 操作系统有两张网卡，实际的物理网卡和虚拟的loopback网卡。
+
+1. foxit的服务绑定了127.0.0.1（loopback网卡）的4000端口，因此client.js实际上在请求foxit的后台服务，因此报错是可以理解了。
+2. server.js绑定到了0.0.0.0（物理网卡）的4000端口（注意：在Linux上0.0.0.0和127.0.0.1被认为是不兼容的，socket分别绑定到这两个IP的相同端口会报`Error: listen EADDRINUSE: address already in use`错误，但在windows下却可以成功启动）。而postman请求的是localhost，**localhost按道理会被解析到127.0.0.1，此时访问的应该也是foxit的服务才对**。但实际上postman的请求却转到了server.js上，只有停掉server.js后localhost才会被成功解析到127.0.0.1，至于为何会这样不太清楚，可能跟windows的地址解析机制有关。
+
+
+
