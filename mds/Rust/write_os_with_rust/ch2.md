@@ -42,11 +42,13 @@ debug = true
 
 
 
-## 调用syscall的代码
+## 实现syscall的调用
 
-因为这里的syscall是模拟Linux的（以便我们的OS尚未完成时使用`qemu-riscv64`模拟执行，同时也因为这个教程本身就是模仿Linux？），因此签名和[Linux的syscall](https://man7.org/linux/man-pages/man2/syscall.2.html)几乎一模一样，除了我们暂时无法实现可变参。  
+因为这里的syscall是模拟Linux的（以便我们的OS尚未完成时使用`qemu-riscv64`模拟执行，同时也因为这个教程本身就是模仿Linux），因此签名和[Linux的syscall](https://man7.org/linux/man-pages/man2/syscall.2.html)几乎一模一样，除了我们暂时无法实现可变参。  
 
 通过syscall用户代码会陷入到S模式并调用OS提供的功能，本章实现了Linux下的[write](https://man7.org/linux/man-pages/man2/write.2.html)和exit两个[syscall](https://man7.org/linux/man-pages/man3/exit.3.html)
+
+
 
 ```rust
 use core::arch::asm;
@@ -77,14 +79,12 @@ pub fn sys_exit(exit_code: i32) -> isize {
 }
 ```
 
-* 关于`ecall`的syscall调用规范比较繁琐，可以看一下[这里的讨论](https://stackoverflow.com/questions/59800430/risc-v-ecall-syscall-calling-convention-on-pk-linux)。注意syscall规范是平台相关的，不包含在RISCV的调用约定中，《RISC-V ABIs Specification》上面明确指出：
+**`ecall`并没有什么规范，它只是指令。而SBI call和syscall才有相关的规范**，《RISC-V ABIs Specification》上面明确指出：
 
-  > The calling convention for system calls does not fall within the scope of this document. Please refer
-  > to the documentation of the RISC-V execution environment interface (e.g OS kernel ABI, SBI).
+> The calling convention for system calls does not fall within the scope of this document. Please refer
+> to the documentation of the RISC-V execution environment interface (e.g OS kernel ABI, SBI).
 
-* `ecall`指令和它后续用到的一系列寄存器不是在一条指令内完成的，见[这里](https://www.risc-v1.com/thread-2746-1-1.html)
-
-* Linux上的syscall table见[这里](https://www.robalni.org/riscv/linux-syscalls-64.html)
+其实`ecall`只是一条指令，只使用了`rd`和`rs`两个寄存器，调用后使得CPU trap到不同的模式。而利用这条指令实现syscall，并规定`ecall`后一系列寄存器的使用约定，则是OS的事情。Linux上的syscall table见[这里](https://www.robalni.org/riscv/linux-syscalls-64.html)。
 
 
 
@@ -192,18 +192,170 @@ readelf -s target/riscv64gc-unknown-none-elf/release/01store_fault | grep _start
 1. 理解第一个程序是如何被加载并运行的，关键在于加载后如何设置EPC寄存器
 2. 在程序正常/异常结束后，OS是如何切换下一个程序的（也和EPC寄存器的设置相关）
 
+OS包含以下几个模块，后面将一一介绍
+
+* syscall：包含系统调用的实现
+* sync：一个新的包装类，用来包装`AppMannager`
+* trap：实现了trap的相关内容，本章最为核心的内容
+* batch：加载并运行用户程序
 
 
-## 一些基础功能变动
 
 本章是在ch1的基础上对OS改造增加批处理的功能，同时对一些基础模块进行了改造使得代码更加精简：
 
 1. SBI调用：ch2通过引入[sbi-rt](https://docs.rs/sbi-rt/0.0.2/sbi_rt/index.html)实现，ch1是内联汇编中调用`ecall`指令实现
 2. 日志打印：ch2引入了通用的日志框架[log](https://docs.rs/log/latest/log/)，个人认为这不是必要的，沿用ch1的`console.rs`即可
 
-总之，第一步是根据ch2的代码稍微改造一下ch1，使其能够运行起来，在此基础上实现后续的批量运行任务的功能
 
 
+
+
+## 实现system call
+
+这个模块实现了syscall，其中控制台的输出功能是调用了SBI的功能，整体并没有特别的地方，只有一处需要留意
+
+```rust
+//os/scr/syscall/process.rs
+pub fn sys_exit(exit_code: i32) -> ! {
+    println!("[kernel] Application exited with code {}", exit_code);
+    run_next_app()
+}
+
+//user/src/lib.rs
+pub extern "C" fn _start() -> ! {
+    clear_bss();
+    exit(main());
+    panic!("unreachable after sys_exit!");
+}
+```
+
+将`exit`嵌入到`_start`，说明每个用户程序正常结束的话都会调用`sys_exit`打印退出码并通过`run_next_app`运行下一个程序。这样就形成了批处理，但用户程序感知不到，这和C语言中[用`_start`包裹`main`是一样的](https://stackoverflow.com/questions/29694564/what-is-the-use-of-start-in-c)。
+
+
+
+到这里，很多年前的一个疑问解开了：
+
+>  如果用户在二进制代码中包含了了特权等级切换的指令，企图获取系统控制权怎么办？
+
+结合后面trap小节的内容我们可以看到这是不可能的，首先了解OS是如何初始化异常处理模块的：
+
+1. OS启动时候初始化了异常处理向量表（`stvec`），指定了异常触发时候的处理函数`trap_handler`
+2. `ecall`触发异常，转到内核执行流，执行`trap_handler`
+3. `trap_handler`中的逻辑必须保证用户此时的操作是合法的
+
+也就是说，以下机制确保了无法在用户态非法获得资源
+
+1. **不能在用户态执行特权指令**（直接报错）
+2. 如果企图在用户态下先通过`ecall`提升特权等级，再执行特权指令也是不行的。**因为`ecall`后立即跳转到内核态执行`trap_handler`，`trap_handler`执行完毕后立即返回用户态**，则此时又回到了情况1。
+
+
+
+## sync
+
+引入这个模块的需求如下：
+
+1. `AppManager`需要全局可变，→`static mut`
+2. 1会导致对`AppManager`的访问都是unsafe，→去掉`mut`，用`RefCell`包装`AppManager`
+3. 2中引入的`RefCell`不是线程安全，→用自定义的`UPSafeCell`包装
+
+
+
+如果直接用unsafe的话是可以省去这个模块的，用了这个模块反而使得代码更不容易读，如果代码不复杂的话个人倾向使用unsafe。但参考了后面章节的内容后发现sync模块还有继续使用，因此先保留。
+
+
+
+## trap
+
+本章最为核心的内容，这个模块包含以下功能：
+
+* 实现trap的处理过程，包括：
+  * `_allTraps`：进入trap时的寄存器保存，用户栈和内核栈的切换，并调用`trap_handler`
+  * `trap_handler`：根据trap的类型进行相关处理
+  * `__restore`：退出trap时恢复寄存器
+
+* 初始化CSR `stvec`（在`init()`中）
+
+*trap.S*用汇编实现了`_allTraps`和`__restore`
+
+```assembly
+.altmacro
+.macro SAVE_GP n
+    sd x\n, \n*8(sp)
+.endm
+.macro LOAD_GP n
+    ld x\n, \n*8(sp)
+.endm
+    .section .text
+    .globl __alltraps
+    .globl __restore
+    .align 2
+__alltraps:
+#...省略
+
+__restore:
+#...省略
+```
+
+定义了SAVE_GP和LOAD_GP两个宏，会在后面的循环中用到，达到动态生成代码的目的。`\`表示这是参数引用
+
+### `_allTraps`：
+
+```assembly
+__alltraps:
+    csrrw sp, sscratch, sp# 交换sp和sscratch的值，交换前sp和sscratch分别指向user栈和kernel栈
+    addi sp, sp, -34*8# 在栈上为TrapContex分配空间，它包好32（通用寄存器数量） + sstaus + sepc = 34
+    # 保存通用寄存器 x0~x31，跳过 x0和x4，x2要晚点才能保存
+    sd x1, 1*8(sp)
+    sd x3, 3*8(sp)
+    .set n, 5
+    .rept 27
+        SAVE_GP %n
+        .set n, n+1
+    .endr
+    # 接下来可以使用t0/t1/t2了，因为已经保存到栈上
+    csrr t0, sstatus 
+    csrr t1, sepc
+    sd t0, 32*8(sp)
+    sd t1, 33*8(sp)
+    # 读取sstatus、sepc到t0和t1，并保存到栈顶部
+    csrr t2, sscratch
+    sd t2, 2*8(sp)# 此时才能保存x2，因为此时t2才能被使用
+    mv a0, sp
+    call trap_handler
+```
+
+* `x0`恒为0无需保存；
+
+* `x4`是tp（thread pointer）也无需保存，因为当前是单线程。
+* `x2`保存的是sp（即sscratch），因为保存sscratch需要用到临时寄存器，因此需要将它放到最后，等全部通用寄存器都保存完毕之后。同理，保存sstatus、sepc也一样
+
+`mv a0, sp`是很关键的一个动作，在此之前环境已经保存到栈上，34字节的栈空间其实就是`TrapContext`的二进制表示，因此将`sp`赋予`a0`意味着后者指向了`TrapContext`的一个实例，而后续被调用的`trap_handler`函数的第一个参数就是`&mut TrapContext`，也就是说这行代码其实是在传参。
+
+唯一需要注意的是此时的栈数据，是否能还原为`TrapContext`呢？**我们可以推断，如果想要成功还原则栈中数据的布局必须和Rust期望的一致，但这个是无法保证的，谁也不知道Rust在不同场景/版本下是否保持一样的布局。即使保持一致，其结构是否和汇编中栈的数据结构一致也是一个问题**。因此有必要通过一些方式稳定布局，使得Rust使用的内存布局和栈中数据一致，代码中是通过`#[repr(C)]`做到这点
+
+```rust
+#[repr(C)]
+pub struct TrapContext {
+    /// general regs[0..31]
+    pub x: [usize; 32],
+    /// CSR sstatus      
+    pub sstatus: Sstatus,
+    /// CSR sepc
+    pub sepc: usize,
+}
+```
+
+
+
+
+
+
+
+### `__restore`：
+
+
+
+## batch
 
 
 
@@ -217,10 +369,9 @@ readelf -s target/riscv64gc-unknown-none-elf/release/01store_fault | grep _start
 
 
 
-## 实现system call本身
 ## 实现从U trap到S并返回的一系列准备和善后工作
 
-
+回忆一下教材中引言部分内容：*在 RISC-V 的特权级规范文档中......中断和异常统称为陷入*，所以代码中也体现了这个概念，`trap_handler`中的模式匹配也是可以分为中断和异常两大类。
 
 
 
