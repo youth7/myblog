@@ -275,7 +275,7 @@ pub extern "C" fn _start() -> ! {
 
 * 初始化CSR `stvec`（在`init()`中）
 
-*trap.S*用汇编实现了`_allTraps`和`__restore`
+*trap.S*用汇编实现了`__allTraps`和`__restore`
 
 ```assembly
 .altmacro
@@ -303,7 +303,7 @@ __restore:
 ```assembly
 __alltraps:
     csrrw sp, sscratch, sp# 交换sp和sscratch的值，交换前sp和sscratch分别指向user栈和kernel栈
-    addi sp, sp, -34*8# 在栈上为TrapContex分配空间，它包好32（通用寄存器数量） + sstaus + sepc = 34
+    addi sp, sp, -34*8# 在栈上为TrapContex分配空间，它包含32个通用寄存器数量 + 1个sstaus + 1个sepc = 34个
     # 保存通用寄存器 x0~x31，跳过 x0和x4，x2要晚点才能保存
     sd x1, 1*8(sp)
     sd x3, 3*8(sp)
@@ -314,7 +314,7 @@ __alltraps:
     .endr
     # 接下来可以使用t0/t1/t2了，因为已经保存到栈上
     csrr t0, sstatus 
-    csrr t1, sepc
+    csrr t1, sepc #注意epc的意义，非常重要！
     sd t0, 32*8(sp)
     sd t1, 33*8(sp)
     # 读取sstatus、sepc到t0和t1，并保存到栈顶部
@@ -347,11 +347,123 @@ pub struct TrapContext {
 
 
 
-
-
-
-
 ### `__restore`：
+
+```assembly
+__restore:
+    mv sp, a0 
+    # now sp->kernel stack(after allocated), sscratch->user stack
+    # 从栈上恢复sstatus、sepc、和sscratch
+    ld t0, 32*8(sp)
+    ld t1, 33*8(sp)
+    ld t2, 2*8(sp)
+    csrw sstatus, t0
+    csrw sepc, t1 #注意epc的意义，非常重要！
+    csrw sscratch, t2
+    # 恢复x1和x3
+    ld x1, 1*8(sp)
+    ld x3, 3*8(sp)
+    .set n, 5
+    # 恢复其他通用寄存器
+    .rept 27
+        LOAD_GP %n
+        .set n, n+1
+    .endr
+    # 改变栈指针，回收栈空间
+    addi sp, sp, 34*8
+    # 交换sp和scratch，即恢复内核栈和用户栈
+    csrrw sp, sscratch, sp
+    sret
+```
+
+`__restore`看起来似乎没有什么特别，仅仅是恢复trap之前的环境而已，但实际上它和`run_next_app()`搭配起来使用非常巧妙地实现了两个功能：
+
+1. 实现系统启动的时实现运行第一个用户程序
+2. 实现用户程序之间的切换
+
+> **注意`sepc`，它会被修改为trap处理完成后默认会执行的下一条指令的地址（在`trap_handler()函数中`），这是实现连续运行用户程序的关键，下面会讲到**
+>
+> *When a trap is taken into S-mode, sepc is written with the virtual address of the instruction thatencountered the exception. Otherwise, sepc is never written by the implementation, though it maybe explicitly written by software.*
+
+
+
+先了解一下`trap_handler()`
+
+```rust
+pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
+    let scause = scause::read(); // get trap cause
+    let stval = stval::read(); // get extra value
+    match scause.cause() {
+        Trap::Exception(Exception::UserEnvCall) => {
+            cx.sepc += 4;
+            //...
+        }
+        Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
+            //...
+            run_next_app();
+        }
+        Trap::Exception(Exception::IllegalInstruction) => {
+            //...
+            run_next_app();
+        }
+        _ => {
+			//...
+        }
+    }
+    cx
+}
+```
+
+里面最为重要的是：
+
+* 如果是普通的syscall，**会执行`cx.sepc += 4`修改`sepc`使其指向下一条指令，这样`sret`后就能在用户程序的正确位置执行，这和普通函数调用非常相似**。
+* 如果是非法异常，则直接运行`run_next_app()`，它也会修改`sepc`使其指向下一个用户程序。
+
+
+
+
+
+`__restore`只被`run_next_app()`调用
+
+```rust
+pub fn run_next_app() -> ! {
+    let mut app_manager = APP_MANAGER.exclusive_access();
+    let current_app = app_manager.get_current_app();
+    unsafe {
+        app_manager.load_app(current_app);
+    }
+    app_manager.move_to_next_app();
+    drop(app_manager);
+    extern "C" {
+        fn __restore(cx_addr: usize);
+    }
+    unsafe {
+        __restore(KERNEL_STACK.push_context(TrapContext::app_init_context(
+            APP_BASE_ADDRESS,
+            USER_STACK.get_sp(),
+        )) as *const _ as usize);
+    }
+    panic!("Unreachable in batch::run_current_app!");
+}
+```
+
+先看下第一个功能是怎么实现的，关键在于对`__restore`的传参：
+
+1. `app_init_context()`中创建了一个`TrapContext`实例，**指定了入口就是`APP_BASE_ADDRESS`，这个地址会最终被转为`sepc`的值**即`__restore()`后会跳到这里执行，而在系统一开始运行的时候，`APP_BASE_ADDRESS`放的就是第一个用户程序，从而实现了驱动第一个程序的运行。
+2. 
+
+
+
+
+
+
+
+1. 发起syscall→`trap_handler()`→`run_next_app()`→`__restore()`→从epc开始执行
+2. `run_next_app()`→`__restore()`
+
+
+
+
 
 
 
