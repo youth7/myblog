@@ -387,7 +387,7 @@ __restore:
 
 
 
-先了解一下`trap_handler()`
+### `trap_handler`
 
 ```rust
 pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
@@ -416,14 +416,12 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
 
 里面最为重要的是：
 
-* 如果是普通的syscall，**会执行`cx.sepc += 4`修改`sepc`使其指向下一条指令，这样`sret`后就能在用户程序的正确位置执行，这和普通函数调用非常相似**。
-* 如果是非法异常，则直接运行`run_next_app()`，它也会修改`sepc`使其指向下一个用户程序。
+* 如果是syscall，**会执行`cx.sepc += 4`修改`sepc`使其指向下一条指令，这样`sret`后就能在用户程序的正确位置执行，这和普通函数调用非常相似**。
+* 如果是非法的指令或读写，则直接运行`run_next_app()`，它会修改`sepc`使其指向下一个用户程序，这样就实现了用户程序的切换。
 
 
 
-
-
-`__restore`只被`run_next_app()`调用
+### `run_next_app`
 
 ```rust
 pub fn run_next_app() -> ! {
@@ -447,23 +445,20 @@ pub fn run_next_app() -> ! {
 }
 ```
 
-先看下第一个功能是怎么实现的，关键在于对`__restore`的传参：
+这个函数的重点是：
 
-1. `app_init_context()`中创建了一个`TrapContext`实例，**指定了入口就是`APP_BASE_ADDRESS`，这个地址会最终被转为`sepc`的值**即`__restore()`后会跳到这里执行，而在系统一开始运行的时候，`APP_BASE_ADDRESS`放的就是第一个用户程序，从而实现了驱动第一个程序的运行。
-2. 
+1. 将用户程序加载到`APP_BASE_ADDRESS`
+2. 构造`TrapContect`实例并传递给`__restore`，**而`__restore`通过修改`sepc`和调用`sret`指令，最终实现在`__restore`结束后跳转到`APP_BASE_ADDRESS`处运行**。这个就是本章节最绕的地方，核心就是**修改sepc并且配合sret实现跳转**
 
+对于第二点，包含了以下几种情况：
 
-
-
-
-
-
-1. 发起syscall→`trap_handler()`→`run_next_app()`→`__restore()`→从epc开始执行
-2. `run_next_app()`→`__restore()`
+1. 驱动第一个用户程序的启动运行。
+2. 当任意一个程序运行中遇到异常，立即加载下一个。
+3. 当任意一个用户程序正常结束的话，立即加载下一个。**这个也是非常隐蔽的地方，因为`run_next_app()`被系统调用`sys_exit`调用了，而`sys_exit`被嵌入到每个用户程序中**（见用户代码*lib.rs*中的`_start`）
 
 
 
-
+简而言之，`run_next_app()`配合`__restore()`实现切换到下一个程序，因此需要在系统开始、程序正常结束、程序异常结束三种情况下调用它，而这又是通过在`sys_exit()`和`trap_handler()`中调用`run_next_app()`实现的。
 
 
 
