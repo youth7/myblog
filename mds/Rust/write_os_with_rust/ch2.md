@@ -296,7 +296,7 @@ __restore:
 #...省略
 ```
 
-定义了SAVE_GP和LOAD_GP两个宏，会在后面的循环中用到，达到动态生成代码的目的。`\`表示这是参数引用
+定义了SAVE_GP和LOAD_GP两个宏，会在后面的循环中用到，达到动态生成代码的目的。`\`表示这是参数引用。这里最重要的一点是，`__alltraps`最后一条指令是`call trap_handler`，**call完之后会立马向下运行到达`__restore`实现恢复现场**，*trap.S*不仅仅是定义了两个函数，还定义了trap的进入和退出的完整流程。
 
 ### `_allTraps`：
 
@@ -351,7 +351,7 @@ pub struct TrapContext {
 
 ```assembly
 __restore:
-    mv sp, a0 
+    mv sp, a0  #这个在稍后的run_next_app中会解释
     # now sp->kernel stack(after allocated), sscratch->user stack
     # 从栈上恢复sstatus、sepc、和sscratch
     ld t0, 32*8(sp)
@@ -376,16 +376,25 @@ __restore:
     sret
 ```
 
-`__restore`看起来似乎没有什么特别，仅仅是恢复trap之前的环境而已，但实际上它和`run_next_app()`搭配起来使用非常巧妙地实现了两个功能：
+`__restore`看起来似乎没有什么特别，仅仅是恢复trap之前的环境而已，它最为重要的功能是
 
-1. 实现系统启动的时实现运行第一个用户程序
-2. 实现用户程序之间的切换
+1. 保存并恢复`sepc`
+2. 使用`sret`返回到U模式，然后从`sepc`指向的地方继续运行
+
+
 
 > **注意`sepc`，它会被修改为trap处理完成后默认会执行的下一条指令的地址（在`trap_handler()函数中`），这是实现连续运行用户程序的关键，下面会讲到**
 >
 > *When a trap is taken into S-mode, sepc is written with the virtual address of the instruction thatencountered the exception. Otherwise, sepc is never written by the implementation, though it maybe explicitly written by software.*
 
 
+
+`__restore`、`trap_handler`和`run_next_app`这3个相互搭配巧妙地实现了批量加载并运行用户程序，其中
+
+* `run_next_app`：加载下一个应用程序到指定位置，并初始化相关资源，然后调用`__restore`
+
+* `__restore`：本来是用于trap退出时候的现场恢复的，但此时利用它的副作用，实现了驱动新的用户程序运行
+* `trap_handler`：异常分派，总体上分为两种情况，详细见`trap_handler`
 
 ### `trap_handler`
 
@@ -416,8 +425,8 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
 
 里面最为重要的是：
 
-* 如果是syscall，**会执行`cx.sepc += 4`修改`sepc`使其指向下一条指令，这样`sret`后就能在用户程序的正确位置执行，这和普通函数调用非常相似**。
-* 如果是非法的指令或读写，则直接运行`run_next_app()`，它会修改`sepc`使其指向下一个用户程序，这样就实现了用户程序的切换。
+* 如果是syscall，**会执行`cx.sepc += 4`修改`sepc`使其指向下一条指令，这样`sret`后就能在用户程序的正确位置执行（注意上面提及的，`call trap_handler`之后顺势往下执行`__restore`），这和普通函数调用非常相似**。
+* 如果是非法的指令或读写，则直接运行`run_next_app`来实现用户程序切换，详见`run_next_app`。
 
 
 
@@ -445,7 +454,7 @@ pub fn run_next_app() -> ! {
 }
 ```
 
-这个函数的重点是：
+这个函数调用了`__restore`，它的重点是：
 
 1. 将用户程序加载到`APP_BASE_ADDRESS`
 2. 构造`TrapContect`实例并传递给`__restore`，**而`__restore`通过修改`sepc`和调用`sret`指令，最终实现在`__restore`结束后跳转到`APP_BASE_ADDRESS`处运行**。这个就是本章节最绕的地方，核心就是**修改sepc并且配合sret实现跳转**
@@ -454,11 +463,32 @@ pub fn run_next_app() -> ! {
 
 1. 驱动第一个用户程序的启动运行。
 2. 当任意一个程序运行中遇到异常，立即加载下一个。
-3. 当任意一个用户程序正常结束的话，立即加载下一个。**这个也是非常隐蔽的地方，因为`run_next_app()`被系统调用`sys_exit`调用了，而`sys_exit`被嵌入到每个用户程序中**（见用户代码*lib.rs*中的`_start`）
+3. 当任意一个用户程序正常结束的话，立即加载下一个。**这个也是非常隐蔽的地方，因为`run_next_app()`被`sys_exit`调用了，而`sys_exit`被嵌入到每个用户程序中**（见用户代码*lib.rs*中的`_start`）
 
 
 
 简而言之，`run_next_app()`配合`__restore()`实现切换到下一个程序，因此需要在系统开始、程序正常结束、程序异常结束三种情况下调用它，而这又是通过在`sys_exit()`和`trap_handler()`中调用`run_next_app()`实现的。
+
+
+
+还有一处重要的地方是调用`__restore`时的传参：
+
+```rust
+KERNEL_STACK.push_context(TrapContext::app_init_context(
+            APP_BASE_ADDRESS,
+            USER_STACK.get_sp(),
+        )
+```
+
+它的工作流程是：
+
+1. 构造一个代表当前用户程序的`TrapContext`
+2. `push_context`会消费1中的对象（move进去），然后生成一个`TrapContext`类型的引用指向1中的对象（**这个引用的地址位于内核栈，这一点非常重要**）
+3. 2中引用会传递给`__restore`，通过`a0`存引用的栈地址方式，因此`__restore`中的`mv sp, a0`就得到了解释：
+   1. 如果`__restore`是被`run_next_app`调用的，则此时它`a0`指向了内核栈
+   2. 如果`__restore`是`call trap_handler`后直接执行下来的，**则因为`trap_handler`中返回了`cx`，所以此时`a0`就是`cx`的地址。而这个返回的`cx`又是在`__alltraps`中通过`mv a0, sp`传递过去的，而此时的`sp`就是指向内核栈**，因此一切就自洽了。
+
+
 
 
 
