@@ -1,8 +1,14 @@
 # Rust基础
 
-## [用`unsafe`读取胖指针的构成](fat_pointer_of_string.md)
-## [自动引用和解引用](ref_and_deref.md)
-## [`unwrap`和`expect`方法总结](unwrap_expect.md)
+* [用`unsafe`读取胖指针的构成](fat_pointer_of_string.md)
+
+* [自动引用和解引用](ref_and_deref.md)
+
+* [`unwrap`和`expect`方法总结](unwrap_expect.md)
+
+* [Visual Studio、msbuild、Windows SDK之间的关系](rust_install.md)
+
+  
 
 ## <!--[《Rust编程第一课》学习笔记](geek_rust_note.md)-->
 
