@@ -48,8 +48,6 @@ debug = true
 
 通过syscall用户代码会陷入到S模式并调用OS提供的功能，本章实现了Linux下的[write](https://man7.org/linux/man-pages/man2/write.2.html)和exit两个[syscall](https://man7.org/linux/man-pages/man3/exit.3.html)
 
-
-
 ```rust
 use core::arch::asm;
 
@@ -81,10 +79,9 @@ pub fn sys_exit(exit_code: i32) -> isize {
 
 **`ecall`并没有什么规范，它只是指令。而SBI call和syscall才有相关的规范**，《RISC-V ABIs Specification》上面明确指出：
 
-> The calling convention for system calls does not fall within the scope of this document. Please refer
-> to the documentation of the RISC-V execution environment interface (e.g OS kernel ABI, SBI).
+> The calling convention for system calls does not fall within the scope of this document. Please refer to the documentation of the RISC-V execution environment interface (e.g OS kernel ABI, SBI).
 
-其实`ecall`只是一条指令，只使用了`rd`和`rs`两个寄存器，调用后使得CPU trap到不同的模式。而利用这条指令实现syscall，并规定`ecall`后一系列寄存器的使用约定，则是OS的事情。Linux上的syscall table见[这里](https://www.robalni.org/riscv/linux-syscalls-64.html)。
+其实`ecall`只是一条指令，仅仅使用了`rd`和`rs`两个寄存器，指令执行后CPU trap到不同的模式。利用这条指令来实现syscall，需要规定`ecall`后一系列寄存器的使用约定，这是OS的事情。Linux上的syscall table见[这里](https://www.robalni.org/riscv/linux-syscalls-64.html)。
 
 
 
@@ -106,14 +103,19 @@ impl Write for Stdout {
         Ok(())
     }
 }
-//...后续省略
+pub fn write(fd: usize, buf: &[u8]) -> isize {
+    sys_write(fd, buf)
+}
+pub fn exit(exit_code: i32) -> isize {
+    sys_exit(exit_code)
+}
 ```
 
 
 
 ## 用户代码
 
-需要注意，对用户代码来说，在调用关系上当前的lib crate和其它的第三方crate没有区别（用户代码也没有被`lib.rs`引入），因此需要使用`#[macro_use]`来导出全部宏，也可以像使用外部模块那样直接引用指定的宏。
+需要注意，对用户代码来说，在调用关系上项目内部的的lib crate和其它的第三方crate没有区别（用户代码也没有被`lib.rs`引入），因此需要使用`#[macro_use]`来导出全部宏，也可以像使用外部模块那样直接引用指定的宏。
 
 用`04priv_csr.rs`来展示我们对教程源码做的一些细微调整，有：
 
@@ -147,7 +149,7 @@ fn main() -> i32 {
 * 构建模块树，以供用户代码调用相关功能
 * 结合链接脚本，指导如何去编译用户代码。
 
-这里有点奇怪，虽然我们没有指定编译用户代码，但可能根据[Package Layout](https://doc.rust-lang.org/cargo/guide/project-layout.html#package-layout)的约定，`src/bin`下面的客户代码**都会被编译为可执行文件**，因为这个package属于多个bin crate+1个lib crate的类型，每一个用户代码就是一个bin crate。因为它们都依赖于`lib.rs`所以`lib.rs`也**参与到每一个用户代码的编译中**，具体作用包括：
+这里有点奇怪，虽然我们没有指定编译用户代码，但可能根据[Package Layout](https://doc.rust-lang.org/cargo/guide/project-layout.html#package-layout)的约定，*src/bin*下面的客户代码**都会被编译为可执行文件**，因为这个package属于多个bin crate+1个lib crate的类型，每一个用户代码就是一个bin crate。因为它们都依赖于*lib.rs*所以*lib.rs*也**参与到每一个用户代码的编译中**，具体作用包括：
 
 * 生成`_start`符号并将其指定为入口（即地址为0x80400000），关于`_start`作为入口的一些细节见[这里中ENTRY的相关章节](../embed_with_rust/embedonomicon.md)。
 
@@ -172,7 +174,7 @@ pub extern "C" fn _start() -> ! {
 
 ## 编译和裁剪
 
-运行以下命令编译并检查
+运行以下命令编译并检查，编译器会将*/src/bin*下的全部代码编译，而它们又引用了*lib.rs*中的内容，因此*lib.rs*中的代码也会参与编译。
 
 ```bash
 cargo build --release --target riscv64gc-unknown-none-elf
@@ -254,9 +256,9 @@ pub extern "C" fn _start() -> ! {
 
 引入这个模块的需求如下：
 
-1. `AppManager`需要全局可变，→`static mut`
-2. 1会导致对`AppManager`的访问都是unsafe，→去掉`mut`，用`RefCell`包装`AppManager`
-3. 2中引入的`RefCell`不是线程安全，→用自定义的`UPSafeCell`包装
+1. `AppManager`需要全局可变：→`static mut`
+2. 1会导致对`AppManager`的访问都是unsafe：→去掉`mut`，用`RefCell`包装`AppManager`
+3. 2中引入的`RefCell`不是线程安全：→用自定义的`UPSafeCell`包装
 
 
 
@@ -309,7 +311,7 @@ __restore:
 
 定义了SAVE_GP和LOAD_GP两个宏，会在后面的循环中用到，达到动态生成代码的目的。`\`表示这是参数引用。
 
-这里最重要的一点是，**`__alltraps`最后一条指令是`call trap_handler`，call完之后会立马向下运行到达`__restore`实现恢复上下文**，*trap.S*不仅仅是定义了两个函数，还定义了trap的进入和退出的完整流程。
+这里最重要的一点是，**`__alltraps`最后一条指令是`call trap_handler`，call完之后会立马向下运行到达`__restore`实现恢复上下文**，*trap.S* **不仅仅**是定义了两个函数，**还定义了trap的进入和退出的完整流程**。
 
 ### `_allTraps`：
 
@@ -437,8 +439,8 @@ pub fn trap_handler(cx: &mut TrapContext) -> &mut TrapContext {
 
 需要留意到函数末尾返回了`cx`，这意味着后续的`__restore`会得通过`a0`到这个参数的地址，这个特性很有用后面会讲到。
 
-> 回忆一下教材中引言部分内容：
->
+回忆一下教材中引言部分内容：
+
 > “*在 RISC-V 的特权级规范文档中......中断和异常统称为陷入...*”
 >
 > 所以代码中也体现了这个概念，`trap_handler`中的模式匹配也是可以分为中断和异常两大类。

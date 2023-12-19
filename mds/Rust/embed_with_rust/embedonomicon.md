@@ -310,13 +310,13 @@ SECTIONS
 
 定义了程序的入口为Rust代码中定义的函数`Reset`。链接器会抛弃未使用的节，**如果脚本中没有这一行则链接器会认为`Reset`未被使用从而抛弃之**
 
-> 注意：这个点非常重要，在rCore教程的[ch2中](../write_os_with_rust/ch2.md)就出现了这个情况，如果在源码中定义了程序的入口函数，但这个函数从未被其它地方使用（因为是入口函数），则链接器会直接抛弃这个函数（即使在rust源码中对它进行一些属性标注也无法阻止，因为这是链接器的行为，但名为`_start`的入口函数在GCC下似乎是一个例外，[这里](https://stackoverflow.com/questions/67918256/rust-custom-bare-metal-compile-target-linker-expects-start-symbol-and-discar)有一个讨论），这样就会导致程序的入口并非如你在源码中
+> 注意：这个点非常重要，在rCore教程的[ch2中](../write_os_with_rust/ch2.md)就出现了这个情况，如果在源码中定义了程序的入口函数，但这个函数从未被其它地方使用（因为是入口函数），则链接器会直接抛弃这个函数（即使在rust源码中对它进行一些属性标注也无法阻止，因为这是链接器的行为，但名为`_start`的入口函数在GCC下似乎是一个例外，[这里](https://stackoverflow.com/questions/67918256/rust-custom-bare-metal-compile-target-linker-expects-start-symbol-and-discar)有一个讨论），这样就会导致程序的入口并非如你在源码中所指定
 
 `Reset`就是在系统重置时运行的第一个函数，因此指定它为入口也是合理的。注意`ENTRY`只是在ELF中标明了了程序的入口（通过`e_entry`），在有OS的系统中OS会读取`e_entry`并跳到相应的地方执行。但在裸机环境要让程序真的成为机器重置时候第一个被执行的程序，还需要符合CPU的要求。具体到本文的话，就是要设置好vector_table。开发人员有必要让vector_table中的`Reset`作为`ENTRY`的参数，这样两处关于开机后的入口就一致了，否则会让人困惑
 
 ### [EXTERN](https://sourceware.org/binutils/docs/ld/Miscellaneous-Commands.html)
 
-链接器会从`entry`命令指定的函数开始，从目标文件中递归搜索所有用到的符  号，一旦所有符合解析完成了就停止，即使此时还有目标文件未被搜索。`EXTERN`的作用是强制链接器去继续解析被`EXTERN`作为参数的符号，例如本节中的`RESET_VECTOR`。
+链接器会从`entry`命令指定的函数开始，从目标文件中递归搜索所有用到的符号，一旦所有符合解析完成了就停止，即使此时还有目标文件未被搜索。`EXTERN`的作用是强制链接器去继续解析被`EXTERN`作为参数的符号，例如本节中的`RESET_VECTOR`。
 
 其实不太明白为何要多用一个变量`RESET_VECTOR`而不是直接使用`Reset`这个符号，`Reset`已经包含了足够的信息用来填充vector table（ 在下一小结我们会通过检查符号表来印证这个结论），个人猜测是因为`Reset`作为一个函数，它最终会被编译到`.text`节中，但我们后续又需要使用它的地址，因此需要有一个变量来保存这个地址，这个变量就是`RESET_VECTOR`，注意它是被编译到`.vector_table.reset_vector`节）
 
