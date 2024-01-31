@@ -260,7 +260,7 @@ P：分区容忍的重点在于出现网络分区之后，系统仍然是可用�
 > * process：是一个逻辑的单线程程序，进行计算和执行操作。它的实现可以跨线程进程/操作系统，甚至物理机节点。但只要它的对外表现和一个单线程无异，则可以称之为process
 > * operation：An operation is a **transition from state to state**
 > * history：是一系列operation的集合。对于含有一系列operation的集合（下面简称为 $s$ ），按照**不同的规则**将 $s$ 中的元素排列会得到不同的history。
-> * Consistency Models：根据history的定义，对于同一个 $s$ 我们有一系列的history，则每个history都有一个与之对应的Consistency Model，即**history是特定规则的外在表现**。注意这个说法和Wikipedia的不太一样，但表达的东西是一样的。
+> * Consistency Models：根据history的定义，对于同一个 $s$ 我们有一系列的history，则每个history都有一个与之对应的Consistency Model，即**history是特定规则的外在表现**。注意这个说法和Wikipedia的不太一样，但表达的思想是一样的。
 
 
 
@@ -268,37 +268,106 @@ Wikipedia的定义：
 
 > a **consistency model** specifies a contract between the programmer  and a system, wherein the system guarantees that if the programmer  follows the rules for operations on memory, memory will be [consistent](https://en.wikipedia.org/wiki/Data_consistency) and the results of reading, writing, or updating memory will be predictable。
 
-简而言之，一致性模型是一种规范，如果遵守这些规范，则读写是**可预测的**。
+简而言之，一致性模型是一种规范，如果遵守这些规范，则读写是**可预测的**。关于一致性模型作者认为理解的重点是：
 
-1. 重点是可预测
+1. 可预测
 2. 这个定义广义的，不仅仅局限于分布式系统，单机内的多线程也有一致性这个概念
 3. 本质上定义了**并发的写操作**的**顺序性**和**可见性**
 
-常见的分布式系统的一致性模型有以下几种：
-
-* 线性一致性
-
-* 顺序一致性
-
-* 因果一致性
-
-* 流水线RAM一致性（PRAM：Pipelined RAM）
-
-  
 
 
+常见的分布式系统的一致性模型有以下几种，注意他们的颜色和的层次结构：
+
+* 相同的颜色表示相同的可用性
+* 箭头表示包含关系
+* 一致性从上到下越来越弱
 
 
 
 ![](../../imgs/consistency.png)
 
+### [线性一致性](https://jepsen.io/consistency/models/linearizable)
 
+**非严格定义**：
+
+原子操作，系统像单节点，因此也叫原子一致性。
+
+---
+
+**严格定义**（来源于[这里](https://jepsen.io/consistency/models/linearizable)提及的论文）：
+
+1. 将发生在系统上的**所有事件**抽象为一个**并发程序执行历史**，简称为H
+2. 给定一个H
+3. 根据不同的规则，可以将H解析为多个不同**顺序历史（sequential history  ）**
+4. **只要从中找到一个合法的顺序历史S**，则H符合线性一致性
+
+> a **linearizable history H** is one in which **there is an equivalent sequential (e.g. non-concurrent) history S**, and the partial real-time order of operations in H is consistent with the total order of S, and which preserves the objects’s single-threaded semantics.
+
+将H转为S的规则
+
+1. 如果两个操作是顺序关系，则他们的先后顺序必须保持
+2. 如果两个操作是并发关系，则他们可以按照任何顺序排列
+
+如何判断S是否合法？
+
+1. S中**操作的顺序**必须和**全局时钟下的顺序一致**
+2. S中**对某个数据的读操作，必须读取到对该数据最近一次的写入**
+
+---
+
+**通俗的定义**：
+
+> 1. 任何一次读都能读到某个数据的最近一次写的数据。
+> 2. 要求系统中的所有节点看到的事件顺序，都和全局时钟下的顺序一致。
+>
+> 简而言之， **线性一致性要求所有节点达成和物理时钟顺序一致的全序一致** 。
+
+
+
+
+
+线性一致性的最大困难**是需要一个全局时钟**
 
 参考：
 
 * https://jepsen.io/consistency
 
-* [分布式的 CAP 定理和一致性模型](https://writings.sh/post/cap-and-consistency-models)
+* [分布式的 CAP 定理和一致性模型](https://writings.sh/post/cap-and-consistency-models)，强烈推荐，里面的*事件先后和并发的*的解释非常重要
+
+  > ###  事件先后和并发
+  >
+  > 在进一步讨论这些一致性模型之间，需要先了解全序和偏序关系[[2\]](https://writings.sh/post/cap-and-consistency-models#footnote-2)。
+  >
+  > 偏序和全序是序理论中常用的两种序关系， 举例来说：
+  >
+  > - 自然数之间的大小关系是全序关系，因为所有数字都可以相互比较。
+  > - 集合之间的包含关系则是偏序关系，因为并不是所有集合都有包含关系。
+  > - 复数之间的大小关系就是偏序关系，复数的模之间的关系是全序关系。
+  >
+  > 简短说： **偏序是部分可比较的序关系，全序是全部可比较的序关系** 。 关于全序和偏序更多的信息，可以看这里：[逻辑时钟-如何刻画分布式中的事件顺序#全序和偏序](https://writings.sh/post/logical-clocks#全序和偏序)。
+  >
+  > 在分布式系统中， 事件的先后关系通常用「happened before」的关系符， 比如 $W1→W2$
+  >
+  >  表示 $W1$ 在 $W2$ 之前发生。 如果两个事件无法比较先后，我们说两个事件是并发的， 记作 $W1∥W2$ 。
+  >
+  > 假设节点之间的物理时钟是精确对齐的， 那么我们完全可以根据事件发生的时间戳来判定事件先后关系。 这就是一种全序关系。 然而因为网络延迟的不确定， 时钟精确同步的这种假设是不符合现实情况的。
+  >
+  > 不同的分布式协调算法，对事件先后的判定逻辑也是不同的。 但是我们一定知道以下先后关系是确定的：
+  >
+  > - 节点内的事件先后顺序
+  > - 一次更新的读成功一定发生在写成功之后
+  >
+  > 观察下面图7.1， 我们可以推导出来一些先后关系和并发关系。
+  >
+  > ![img](https://writings.sh/assets/images/posts/cap-and-consistency-models/7.1.jpg)图7.1 - 事件先后示意
+  >
+  > 
+  >
+  > 在分布式的事件顺序的理解上，我们一定要清楚的是： **事件的先后关系是具有相对性的**。 我们无法在系统中创造一个上帝视角观察到全局情况， 只能通过每个节点对系统的局部感知来推导全局的事件顺序是怎样的， 这取决于我们的一致性协调算法是如何构建的， 而且我们甚至可能无法推导出全序关系， 只能推导出部分事件的偏序关系。 （了解更多可以看 [逻辑时钟-如何刻画分布式中的事件顺序#事件先后的相对性](https://writings.sh/post/logical-clocks#事件先后的相对性)）。
+
+* [逻辑时钟 - 如何刻画分布式中的事件顺序](https://writings.sh/post/logical-clocks)
+
+
 
 ## 隔离级别
 
