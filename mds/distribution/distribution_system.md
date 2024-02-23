@@ -611,40 +611,37 @@ DDIA还指出：
 
 
 
-
-
-~~SMR能够克服分布式系统的以下难题-~~
-
-1. ~~在网络延迟、分区、丢包、重复、重排序的情况下，确保不会返回错误的结果~~
-2. ~~不依赖时钟~~
-3. ~~高可用~~
-
-~~此外，达成共识还能解决分布式系统中的经典问题：~~
-
-1. ~~互斥：分布式系统中哪个进程先进入临界区~~
-2. ~~选主：所有节点对谁是领导者达成共识~~
-3. ~~原子提交：所有节点对事务结果达成共识~~
-
-
-
 共识算法需要具备的3个性质：
 
-* 终止性（Termination）：所有正确的进程最终都会认同**某一个值**（注意这里没有说每个进程认同的值都相同）
-* 协定性（Agreement）：所有正确的进程认同的值都是**同一个值**
-* 完整性（Integrity）：如果正确的进程都提议同一个值$v$ ，那么任何正确的进程的最终决定值一定是$v$ （暗示决定值一定源于某个正确进程的提议，不是凭空产生）
+* 终止性（Termination）：最终，所有正确的进程最终都会认同**某一个值**（注意这里**没有说每个进程认同的值都相同**）
+* 协定性（Agreement）：所有正确的进程都认同**同一个值**
+* 完整性（Integrity）：如果正确的进程都**提议**同一个值$v$（注意区分提议的值和最终决定值） ，那么任何正确的进程的**最终决定值**一定是$v$ （暗示决定值一定源于某个正确进程的提议，不是凭空产生）
 
-将上述3个性质提炼一下，可以得到：
+> A consensus protocol tolerating halting failures must satisfy the following properties.
+>
+> - Termination：Eventually, every correct process decides some value.
+> - Integrity：If all the correct processes proposed the same value  v, then any correct process must decide v
+> - Agreement： Every correct process must agree on the same value.
 
-* 安全性（Safety）：协定性+协定性
-* 活性（Liveness）：完整性
-
-> 前三种属性是从数学角度对一致性问题的描述，  而后两种性质则是从分布式角度阐述？
-
-
+这3个性质和后面提及的活性/安全性的关系有点模糊，并且根据FLP定理，似乎活性/安全性更加常用。
 
 
 
 ## FLP定理
+
+安全性和活性的定义：
+
+> Properties of an execution of a computer program—particularly for [concurrent](https://en.wikipedia.org/wiki/Concurrent_system) and [distributed systems](https://en.wikipedia.org/wiki/Distributed_system)—have long been formulated by giving *safety properties* ("bad things don't happen") and *liveness properties* ("good things do happen").[[1\]](https://en.wikipedia.org/wiki/Safety_and_liveness_properties#cite_note-Lamport1977-1)
+>
+> ...
+>
+> A safety property proscribes discrete *bad things* from occurring during an execution.[[1\]](https://en.wikipedia.org/wiki/Safety_and_liveness_properties#cite_note-Lamport1977-1) 
+>
+> ...
+>
+> A liveness property prescribes *good things* for every execution or, equivalently, describes something that must happen during an execution.[[1\]](https://en.wikipedia.org/wiki/Safety_and_liveness_properties#cite_note-Lamport1977-1)
+>
+> ...
 
 在最坏的情况下：
 
@@ -656,11 +653,29 @@ FLP从理论上说明了在极端的假设下一个完美的共识算法是不�
 
 
 
+> Note that Paxos **is *not* guaranteed to terminate, and thus does not have the liveness property**. This is supported by the Fischer Lynch  Paterson impossibility result (FLP)[[6\]](https://en.wikipedia.org/wiki/Paxos_(computer_science)#cite_note-flp-6) which states that a consistency protocol can only have two of *safety*, *liveness*, and *fault tolerance*. As Paxos's point is to ensure fault tolerance and it guarantees safety, it cannot also guarantee liveness.
+
 
 
 参考：
 
 * [FLP 不可能原理](https://yeasy.gitbook.io/blockchain_guide/04_distributed_system/flp)
+* [Paxos (computer science)](https://en.wikipedia.org/wiki/Paxos_(computer_science)#Safety_and_liveness_properties)
+* https://en.wikipedia.org/wiki/Safety_and_liveness_properties
+
+## Paxos
+
+Paxos的目标：保证最终有一个value会被选定，当value被选定后，进程最终也能获取到被选定的value。
+
+
+
+参考：
+
+* [图解 Paxos 算法](https://leehao.me/%E5%9B%BE%E8%A7%A3-Paxos-%E7%AE%97%E6%B3%95/)
+* [Paxos算法（一）：如何在多个节点间确定某变量的值？](https://freegeektime.com/100046101/201700/)
+* [分布式系列文章——Paxos算法原理与推导](https://www.cnblogs.com/linbingdong/p/6253479.html)
+
+
 
 # 5. 分布式事务
 
