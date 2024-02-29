@@ -676,7 +676,7 @@ Paxos的目标：保证最终有一个value会被选定，当value被选定后�
 参考：
 
 * [图解 Paxos 算法](https://leehao.me/%E5%9B%BE%E8%A7%A3-Paxos-%E7%AE%97%E6%B3%95/)
-* [Paxos算法（一）：如何在多个节点间确定某变量的值？](https://freegeektime.com/100046101/201700/)
+* [（极客时间）Paxos算法（一）：如何在多个节点间确定某变量的值？](https://freegeektime.com/100046101/201700/)
 * [可靠分布式系统-paxos的直观解释](https://blog.openacid.com/algo/paxos/#%E5%85%B6%E4%BB%96)
 * [分布式系列文章——Paxos算法原理与推导](https://www.cnblogs.com/linbingdong/p/6253479.html)
 
