@@ -631,7 +631,7 @@ DDIA还指出：
 
 ## FLP定理
 
-安全性和活性的定义：
+理解这个定理之前需要先知道**安全性**和**活性**的定义：
 
 > Properties of an execution of a computer program—particularly for [concurrent](https://en.wikipedia.org/wiki/Concurrent_system) and [distributed systems](https://en.wikipedia.org/wiki/Distributed_system)—have long been formulated by giving *safety properties* ("bad things don't happen") and *liveness properties* ("good things do happen").[[1\]](https://en.wikipedia.org/wiki/Safety_and_liveness_properties#cite_note-Lamport1977-1)
 >
@@ -644,6 +644,16 @@ DDIA还指出：
 > A liveness property prescribes *good things* for every execution or, equivalently, describes something that must happen during an execution.[[1\]](https://en.wikipedia.org/wiki/Safety_and_liveness_properties#cite_note-Lamport1977-1)
 >
 > ...
+
+具体到Paxos协议的话变成这样
+
+>* Safety:
+>  * Only a single value may be chosen
+>  * A server never learns that a value has been chosen unless it
+>    really has been
+>* Liveness (as long as majority of servers up and communicating with reasonable timeliness):
+>  * Some proposed value is eventually chosen
+>  * If a value is chosen, servers eventually learn about it
 
 在最坏的情况下：
 
@@ -679,6 +689,7 @@ Paxos的目标：保证最终有一个value会被选定，当value被选定后�
 * [（极客时间）Paxos算法（一）：如何在多个节点间确定某变量的值？](https://freegeektime.com/100046101/201700/)
 * [可靠分布式系统-paxos的直观解释](https://blog.openacid.com/algo/paxos/#%E5%85%B6%E4%BB%96)
 * [分布式系列文章——Paxos算法原理与推导](https://www.cnblogs.com/linbingdong/p/6253479.html)
+* [Implementing Replicated Logs with Paxos（基本上是上面所有讲解的源头）](https://ongardie.net/static/raft/userstudy/paxos.pdf)
 
 
 

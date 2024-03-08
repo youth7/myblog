@@ -29,7 +29,7 @@ execFile         fork
 ```
 从上图可易知：
 * 在用户层面，其它3个函数最终都是调用`child_process.spawn`
-* exec调用了execFile，因此它们的性态应该是一样的（缓存了IO）
+* `exec`调用了`execFile`，因此它们的性态应该是一样的（缓存了IO）
 
 接下来我们依次讨论一下这几个函数。
 
@@ -250,7 +250,8 @@ exports.execFile = function(file /*, args, options, callback*/) {
 
 ## `fork`
 `fork`的相关源码如下：
-```
+
+```javascript
 exports.fork = function(modulePath /*, args, options*/) {
  //省略	
  var execArgv;
@@ -286,6 +287,7 @@ function stdioStringToArray(option) {
 }
 ```
 `fork`也是相当简单，注意两个地方：
+
 * 父子进程之间建立了额外的ipc通道 
 * 调用`spawn`的时候传递的第一个参数默认是nodejs路径的绝对值  
 
