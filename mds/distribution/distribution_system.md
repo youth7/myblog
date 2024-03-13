@@ -221,7 +221,7 @@ $$
 
 一些需要注意的地方
 
-* **Quorum** 机制，是一种分布式系统中常用的，用来保证**数据冗余**和最终一致性的投票算法。
+* **Quorum** 机制，是一种分布式系统中常用的，用来保证**数据冗余**和**最终一致性**（注意只是最终一致性，不能保证更强的一致性了）的投票算法。
 * 注意**Quorum不一定是*大多数***（*大多数*是写入时候必须超过一半的节点），Quorum的核心是有**重叠**，这样即使不是大多数的情况下依然能够返回最新数据
 * 遵循这些 $R$ 值和 $W$ 值的读写称为 **法定人数（quorum）** 的读和写
 * **宽松的quorum实际上并不是法定人数，它能够提供一些容错但会导致系统变得复杂**，不要过于纠结这个概念，关于详细的描述可以参考[宽松quorum和提示移交](https://github.com/Vonng/ddia/blob/master/ch5.md#%E5%AE%BD%E6%9D%BE%E7%9A%84%E6%B3%95%E5%AE%9A%E4%BA%BA%E6%95%B0%E4%B8%8E%E6%8F%90%E7%A4%BA%E7%A7%BB%E4%BA%A4)。
@@ -679,17 +679,103 @@ FLP从理论上说明了在极端的假设下一个完美的共识算法是不�
 
 ## Paxos
 
-Paxos的目标：保证最终有一个value会被选定，当value被选定后，进程最终也能获取到被选定的value。
+理解Paxos的难点有：
+
+1. `Q4`，如果一开始就带入错误的背景去理解Paxos，则认知会永远处于冲突之中。
+2. [《可靠分布式系统-paxos的直观解释》](https://blog.openacid.com/algo/paxos/#%E5%85%B6%E4%BB%96)中用一个简单模型来推导Paxos的过程非常重要，它从最直观的角度解释了Prepare和Accept两个阶段各种行为的根本目的
+3. `Q1`+`Q2`+`Q3`覆盖了Prepare阶段的全部问题
+4. Prepare阶段的目的：
+   1. 找出已经被选中的值（如果有的话）
+   2. block之前尚未完成的提议（如果有的话）
+5. Accept阶段的目的：
+   1. 通知acceptor去接受指定的值
+
+
+
+Paxos可能会遇到以下3种异常情况：
+
+**情况1：Previous value already chosen**    
+
+1. 已经选中X
+2. 因此后续的proposer一定能发现X，然后采用这个值进行Accept请求，最终系统的值就是X。
+
+![](../../imgs/paxos-exception-1.png)
+
+**情况2：Previous value not chosen, but new proposer sees it**
+
+1. X尚未被选中，则后续的proposer不一定能读取到X
+2. 如果后续的proposer**恰好读到X**，然后采用这个值进行Accept请求，最终系统的值就是X。
+3. 这种情况下两个提议都被通过了，系统对外的值是一致的，**但提议号不一样**（按照算法的规定，Accept请求是发送给所有Acceptor的，正常情况下S1和S2都会更新自己的提议号使得和S3/S4/S5一致，而下图演示的是即使在网络故障情况下，算法依然能使得集群对值达成一致）
+
+![](../../imgs/paxos-exception-2.png)
+
+**情况3：Previous value not chosen, new proposer doesn’t see it:**
+
+1. X尚未被选中，则后续的proposer不一定能读取到X
+2. 后续的proposer**恰好未读到X**
+3. 值为Y的提议被选中，值为X的提议会被驳回，最终系统的值就是Y。
+
+![](../../imgs/paxos-exception-3.png)
+
+一些疑问
+
+`Q1`：为什么需要Prepare阶段，这是为了应对什么场景？
+
+A：有以下几种作用：
+
+* 在Acceptor做一个标记，表示我即将写入。这样它前面（指提议编号低）的Proposer全部不能写入，避免了因为 *写前读* 造成的冲突，见`Q3`
+* 同时从Acceptor上读出一个值，这个操作的作用见`Q2`
+
+
+
+`Q2`：如果Promise应答中有了值，**则Proposer必须使用这个值来发Accept阶段的请求**，这是为了应对什么场景？ 
+
+A：如下：
+
+* 此时必须假设有其他客户端(Proposer) 正在运行, 虽然不知道对方是否已经成功结束, 但任何**已经写入的值都不能被修改！所以必须保持原有的值来发送Accept阶段的请求**。此时相当于这个客户端执行了一次修复。
+* 通过使用这个值来发送Accept请求，我们可以处理**上面的情况1和情况2**。
+* 注意，**千万不要将这个情况与【分布式系统将一个值修改多次】这个关联起来**，当前场景是**并发时在集群中唯一确定一个值**。
+
+
+
+`Q3`：Acceptor为何要记录接收过的最大的提议号和已经通过（choosen）的提议号
+
+A：这是为了记住谁最后读取过它（最后读取过它的节点才有权限写入），防止**并发时出现写前读取**导致更新丢失。注意：这里的最后读取并不是用物理时钟而是提议号决定的，提议号越大则认为是越后读取。
+
+
+
+`Q4`：如果值一旦被选中就不能修改，但后续真的又需要修改这个值怎么办？例如Redis中不断修改某个key的值
+
+A：Redis的例子和basic-paxos无关，和multi-paxos有关，如下：
+
+* 每一次对key的操作被记录为一条日志，根据basic-paxos，这条日志在多个副本之间是相同的。
+* 使用multi-paxos，则会在多个副本中生成一致的日志序列。
+* 副本执行这些日志序列，则代表对key的值的修改。
+
+
+
+`Q5`：真的能实现线性一致性吗？
+
+A：
+
+
+
+
+
+
+
+
 
 
 
 参考：
 
+* [可靠分布式系统-paxos的直观解释（解释最好的一篇）](https://blog.openacid.com/algo/paxos/#%E5%85%B6%E4%BB%96)
+
 * [图解 Paxos 算法](https://leehao.me/%E5%9B%BE%E8%A7%A3-Paxos-%E7%AE%97%E6%B3%95/)
 * [（极客时间）Paxos算法（一）：如何在多个节点间确定某变量的值？](https://freegeektime.com/100046101/201700/)
-* [可靠分布式系统-paxos的直观解释](https://blog.openacid.com/algo/paxos/#%E5%85%B6%E4%BB%96)
 * [分布式系列文章——Paxos算法原理与推导](https://www.cnblogs.com/linbingdong/p/6253479.html)
-* [Implementing Replicated Logs with Paxos（基本上是上面所有讲解的源头）](https://ongardie.net/static/raft/userstudy/paxos.pdf)
+* [Implementing Replicated Logs with Paxos（基本上是所有讲解的源头）](https://ongardie.net/static/raft/userstudy/paxos.pdf)
 
 
 
