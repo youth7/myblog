@@ -782,9 +782,33 @@ A：单纯的quorum读写缺失原子性的问题被这样解决了：
 
 
 
+## Multi-Paxos
+
+它就是多次运行单个Paxos，然后对一系列的值达成一致性。
 
 
 
+关于index的选择，被《深入理解分布式系统》误导了好久，它里面说的
+
+> 1. 找到第一个没有 chosen 的日志记录
+> 2. 运行 Basic Paxos，对这个 index 用客户端请求的提案值进行提案
+> 3. Prepare 是否返回 acceptedValue？
+>    1. 是：用 acceptedValue 跑完这轮 Paxos，然后回到步骤 1 继续处理
+>    2. 否：chosen 客户端提案值
+
+它这个过程，首先是：
+
+1. client发请求给某个Proposer，此时这个Proposer需要确定index，然后才能对index这个位置的日志进行提议
+2. 确定index的算法就是：**首个没有被chosen日志的下标（注意，此时index已经确定了！）**
+3. 用这个index跑完一轮Paxos，然后回到1继续找到下一个index进行Paxos
+
+
+
+从上可以看出，对于每一个index都可以发起Paxos，且每个Paxos之间都是相互独立的，有可能某些index的Paxos已经好了但其它位置的尚未完成，这就是日志产生空洞的原因！
+
+
+
+>  [《分布式系统与一致性》](https://book.douban.com/subject/35466098/)解答了很多个长时间困扰我的细节，此书某些细节写得非常好
 
 
 
@@ -796,6 +820,7 @@ A：单纯的quorum读写缺失原子性的问题被这样解决了：
 * [（极客时间）Paxos算法（一）：如何在多个节点间确定某变量的值？](https://freegeektime.com/100046101/201700/)
 * [分布式系列文章——Paxos算法原理与推导](https://www.cnblogs.com/linbingdong/p/6253479.html)
 * [Implementing Replicated Logs with Paxos（基本上是所有讲解的源头）](https://ongardie.net/static/raft/userstudy/paxos.pdf)
+* [深度解读：Raft是Paxos的一个变种么？](https://juejin.cn/post/7304538151476920358)
 
 
 
