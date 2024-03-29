@@ -713,7 +713,7 @@ Paxos可能会遇到以下3种异常情况：
 
 1. X尚未被选中，则后续的proposer不一定能读取到X
 2. 如果后续的proposer**恰好读到X**，然后采用这个值进行Accept请求，最终系统的值就是X。
-3. 这种情况下两个提议都被通过了，系统对外的值是一致的，**但提议号不一样**（按照算法的规定，Accept请求是发送给所有Acceptor的，正常情况下S1和S2都会更新自己的提议号使得和S3/S4/S5一致，而下图演示的是即使在网络故障情况下，算法依然能使得集群对值达成一致）
+3. 这种情况下两个提议都被通过了，系统对外的值是一致的，**但提议号不一样，但只要提案的 value 是一样的，批准多个提案不违背算法的约束：在一次 Paxos 算法的执行实例中，只批准（chosen）一个 value**。（根据Paxos算法，当多个Proposer并发提议时，最终使得提议号不一致似乎是非常正常的事）
 
 ![](../../imgs/paxos-exception-2.png)
 
@@ -721,7 +721,7 @@ Paxos可能会遇到以下3种异常情况：
 
 1. X尚未被选中，则后续的proposer不一定能读取到X
 2. 后续的proposer**恰好未读到X**
-3. 值为Y的提议被选中，值为X的提议会被驳回，最终系统的值就是Y。
+3. 值为Y的提议被选中，值为X的提议会被驳回，最终系统的值就是Y。因为X被驳回了，所以提议它的那个Proposer会再发起一轮新的Paxos，最终使得S1/S2的值变成Y，整个系统所有Acceptor的值都一致。这个做法没有包含在Paxos算法中，但[《分布式系统与一致性》](https://book.douban.com/subject/35466098/)中有提及，可能是一个工程实现上的优化。即使不修复这个值，客户端下次通过一次quorum读依然能读到Y。
 
 ![](../../imgs/paxos-exception-3.png)
 
@@ -733,6 +733,15 @@ A：有以下几种作用：
 
 * 在Acceptor做一个标记，表示我即将写入。这样它前面（指提议编号低）的Proposer全部不能写入，避免了因为 *写前读* 造成的冲突，见`Q3`
 * 同时从Acceptor上读出一个值，这个操作的作用见`Q2`
+
+
+
+`Q1.1`：Prepare阶段（假设提议号为n）需要注意到Acceptor的两个行为，它只有在**提议号唯一**的时候才能保证算法的正确性
+
+1. 只有**n > Acceptor见过的所有提议号时**，才响应这个Prepare请求。
+2. 承诺**不再接受任何编号比n小的提议**  （注意，**这里的接受是指在Accept阶段的选中！！！**）
+
+>  原书中老是混淆*接收*和*选中*两个概念，甚至网络上的文章也是。在我看来，*接收*发生在Prepare阶段中，指回复某个Prepare请求。而*选中*（即接受）发生在Accept阶段中，指同意某个值，但网上很多资料都用*接受*这个词来指代这两个概念，特别是原书p79中描述让人非常迷惑。
 
 
 
@@ -821,6 +830,7 @@ A：单纯的quorum读写缺失原子性的问题被这样解决了：
 * [分布式系列文章——Paxos算法原理与推导](https://www.cnblogs.com/linbingdong/p/6253479.html)
 * [Implementing Replicated Logs with Paxos（基本上是所有讲解的源头）](https://ongardie.net/static/raft/userstudy/paxos.pdf)
 * [深度解读：Raft是Paxos的一个变种么？](https://juejin.cn/post/7304538151476920358)
+* [why-does-paxos-proposalid-need-to-be-unique](https://stackoverflow.com/questions/45610160/why-does-paxos-proposalid-need-to-be-unique)
 
 
 
