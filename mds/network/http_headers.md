@@ -111,7 +111,7 @@ message header是报文非常重要的部分，携带了通讯中的一些元信
 4， 过有效期之后如何验证资源  
 
 
-HTTP的缓存体系是分为多个部分，有client缓存、proxy缓存、server缓存，发送方和响应方通过解析cache-control里面的指令，来执行对应的缓存策略。最为关键的两个概念是新鲜度（Freshness）和验证（Validation），cache-control跟这两个概念有密切联系，跟先列出cache-control的具体内容。
+HTTP的缓存体系是分为多个部分，有client缓存、proxy缓存、server缓存，发送方和响应方通过解析cache-control里面的指令，来执行对应的缓存策略。最为关键的两个概念是新鲜度（Freshness）和验证（Validation），cache-control跟这两个概念有密切联系，先列出cache-control的具体内容。
 
 * 当cache-control在**请求**时发送，可用的指令有:  
 
