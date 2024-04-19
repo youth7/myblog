@@ -11,7 +11,7 @@ CDN也可以视为缓存
 反向代理（比如 Nginx）和缓存（比如 Varnish）可以直接提供静态和动态内容。Web 服务器同样也可以缓存请求，返回相应结果而不必连接应用服务器。
 ##  数据库缓存
 
-但是mysql8已经关闭了其中sql的缓存？
+但是MySQL8已经关闭了其中SQL的缓存？
 
 ##  应用缓存
 
@@ -55,17 +55,25 @@ CDN也可以视为缓存
 
 > 为什么不是写完数据库后更新缓存？你可以看一下Quora上的这个问答《[Why  does Facebook use delete to remove the key-value pair in Memcached  instead of updating the Memcached during write request to the backend?](https://www.quora.com/Why-does-Facebook-use-delete-to-remove-the-key-value-pair-in-Memcached-instead-of-updating-the-Memcached-during-write-request-to-the-backend)》，主要是怕两个并发的写操作导致脏数据。可以想象两个写操作交织一起的情况，其中早来的写操作完全包裹住晚来的写操作，从而导致覆盖晚来的写操作的更新，但是用delete就能避免这种问题。如下图：
 
-![](http://assets.processon.com/chart_image/5ceb8fa0e4b078e7ea8f78aa.png)
+![](../../imgs/conflict-1.png)  
+
+  
+
+
 
 ### 可能引发的数据不一致（只存在读写冲突，没有写写冲突）
 在读写并发的时候，读请求穿插在写请求的不同阶段，使得有两种不一致的情况，注意没有写写冲突，因为不会直接设置缓存
 * 读写冲突，读到旧数据，并设置旧数据为缓存
 
-  ![](https://img-blog.csdnimg.cn/2020062411251064.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3lhbmdndW9zYg==,size_16,color_FFFFFF,t_70#pic_center)
+  ![](../../imgs/conflict-2.png)  
+
+   
 
 * 读写冲突，读到旧数据，并设置旧数据为缓存
 
-  ![在这里插入图片描述](https://img-blog.csdnimg.cn/20200624112601521.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3lhbmdndW9zYg==,size_16,color_FFFFFF,t_70#pic_center) 
+  ![](../../imgs/conflict-3.png)  
+  
+   
 
 ### 总结
 
@@ -95,14 +103,18 @@ CDN也可以视为缓存
 
 在读写并发的时候，读请求穿插在写请求的不同阶段，使得有两种不一致的情况
 
-* 读写冲突，新数据被覆盖
+* 读写冲突，新数据被覆盖  
 
-  ![在这里插入图片描述](https://img-blog.csdnimg.cn/20200624141144511.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3lhbmdndW9zYg==,size_16,color_FFFFFF,t_70#pic_center)
+  ![](../../imgs/conflict-4.png)  
+
+  
 
 * 写写冲突，新数据被覆盖
 
-  ![在这里插入图片描述](https://img-blog.csdnimg.cn/20200624141514422.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3lhbmdndW9zYg==,size_16,color_FFFFFF,t_70#pic_center)
+  ![](../../imgs/conflict-5.png)  
 
+  
+  
   
 
 ### 总结
@@ -172,6 +184,14 @@ CDN也可以视为缓存
 解决方案：
 
 * 设置热点数据永不过期，或者动态延长热点数据的过期时间
+
+
+
+# 与CPU缓存一致性协议MESI的关系
+
+todo
+
+
 
 # 总结
 * 所有的异常情况，都是源于并发读写的时候，缓存的更新+数据库的更新不是一个原子操作，使得在更新过程中的中间状态被其它操作观察/修改了。可以对比数据库并发读写时候出现的几种异常情况：https://en.wikipedia.org/wiki/Isolation_(database_systems)
