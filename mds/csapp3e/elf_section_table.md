@@ -164,26 +164,85 @@ typedef struct
 
 见[ELF和ELF头部](/csapp3e/elf_file_header.md)中的相关章节
 
-### `.BSS`和`.COMMON`
+## `.BSS`和`.COMMON`
 
-`.bss`：更好地节省空间，因此将值为0的符号全部收录在此
+> In [computer programming](https://en.wikipedia.org/wiki/Computer_programming), the **block starting symbol** (abbreviated to **.bss** or **bss**) is the portion of an [object file](https://en.wikipedia.org/wiki/Object_file), executable, or [assembly language](https://en.wikipedia.org/wiki/Assembly_language) code that contains [statically allocated variables](https://en.wikipedia.org/wiki/Static_variable) that are **declared but have not been assigned a value yet** 
 
->首先，未初始化的静态变量以及初始化为0的全局或者静态变量在虚拟内存中的.bss段。
->
->其次，虚拟内存区域的内容和物理内存区域中的内容通过内存映射的方式进行关联，对于虚拟内存中的.bss区域中的内容规定映射到匿名文件处，运行的时候在内存分配这些变量，初始值为0
+`.bss`：在ELF规范中的**核心语义只有一个，存储未初始化的静态变量**。
+
+而对C语言来说：
+
+* C中的全局变量具有静态存储期，如果未初始化那么必须进`.bss`
+* C中**未初始化的全局变量、未初始化的全局static变量（简称为`g`）**会被初始化为0。因为是未初始化的静态存储期的元素，因此会进入`.bss`
+* C中**初始化为0的全局变量、初始化为0的全局static变量（简称为`g'`）**和`g`在表现上是一样的，因此`g'`也进入`.bss`是非常自然，语义上也显得一致。
+
+|           | static变量 | 全局变量                                          |
+| --------- | ---------- | ------------------------------------------------- |
+| 未初始化  | `.bss`     | `.bss`或<br>`.common`（现代编译器已经很少使用了） |
+| 初始化为0 | `.bss`     | `.bss`                                            |
 
 
 
-`.common`：符号可能在多处有定义，但在目前这个阶段尚未确定，因此放在公共区留待稍后确定。
 
-> Commons only appear before the linking stage. Commons are what later  goes into the bss or data‚ but it's up to the linker to decide where it  goes. This allows you to have the same variable defined in different  compilation units. As far as I know this is mostly to allow some ancient header files that had `int foo;` in them instead of `extern int foo;`.
 
-|           | static变量 | 全局变量  |
-| --------- | ---------- | --------- |
-| 未初始化  | `.bss`     | `.common` |
-| 初始化为0 | `.bss`     | `.bss`    |
+> Commons only appear **before the linking stage**. Commons are **what later  goes into the bss or data**‚ but it's up to the linker to decide where it  goes. This allows you to have the same variable defined in different  compilation units. As far as I know this is mostly to allow some ancient header files that had `int foo;` in them instead of `extern int foo;`.
 
-在linux上，当ELF被加载后`.bss`是每个进程私有的。又因为bss`被映射到匿名文件，而匿名文件是demand-zero page的，因此所有分配到`.bss`的变量默认值都是0。
+`.common`：
+
+ 	1. 最早出现在Fortran中，发展到现在的话，是汇编、链接工具中一个决议弱符号的一套规则：
+     	1. 多个**同名的弱符号分布在不同的编译单元中**。
+     	2. 汇编时候无法决定最终采用哪个弱符号，因此在各自目标文件中添加`.common`节，将弱符号放进去
+     	3. 链接时候，比较各个`.common`中的同名弱符号，取占用空间最大的那个。
+ 	2. 发生在链接前，并且只会在目标文件中，不可能出现在可执行文件中。
+ 	3. 链接后，`.common`中的东西会被链接器分配到`.bss`或者`.data`中
+
+然而`.common`在现代编译器中似乎不再采用了，见下面的C语言代码，都不会产生`.common`
+
+```c
+int haha1 = 0; //初始化为0的全局变量，进入.bss
+int haha2;     //未初始化的全局变量，进入.bss
+int haha3 = 1;// 已初始化的全局变量，进入.data
+
+__attribute__((weak)) int haha4 = 0;    //弱符号进入.bss
+__attribute__((weak)) int haha5;        //弱符号进入.bss
+__attribute__((weak)) int haha6 = 1;    //弱符号进入.data
+
+static int haha7 = 0; //初始化为0的全局static变量，进入.bss
+static int haha8;     //未初始化的全局static变量，进入.bss
+static int haha9 = 1; //已初始化的全局static变量，进入.data
+
+int main(void){}
+```
+
+编译为目标文件（ubuntu20，默认gcc套件），然后查看各个变量的情况
+
+```bash
+gcc -std=c11 test.c -o test.o && readelf -s test.o | grep haha
+```
+
+```bash
+....
+[23] .data             PROGBITS         0000000000004000  00003000
+       0000000000000020  0000000000000000  WA       0     0     8
+[24] .bss              NOBITS           0000000000004020  00003020
+       0000000000000018  0000000000000000  WA       0     0     4
+...       
+       
+       
+    35: 000000000000402c     4 OBJECT  LOCAL  DEFAULT   24 haha7
+    36: 0000000000004030     4 OBJECT  LOCAL  DEFAULT   24 haha8
+    37: 0000000000004018     4 OBJECT  LOCAL  DEFAULT   23 haha9
+    52: 0000000000004034     4 OBJECT  GLOBAL DEFAULT   24 haha2
+    53: 0000000000004024     4 OBJECT  WEAK   DEFAULT   24 haha4
+    54: 0000000000004014     4 OBJECT  WEAK   DEFAULT   23 haha6
+    65: 0000000000004010     4 OBJECT  GLOBAL DEFAULT   23 haha3
+    66: 0000000000004028     4 OBJECT  WEAK   DEFAULT   24 haha5
+    67: 0000000000004020     4 OBJECT  GLOBAL DEFAULT   24 haha1  
+```
+
+参考：
+
+* https://stackoverflow.com/questions/16835716/bss-vs-common-what-goes-where
 
 # 一些特殊的节
 
