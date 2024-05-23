@@ -164,6 +164,8 @@ typedef struct
 
 见[ELF和ELF头部](/csapp3e/elf_file_header.md)中的相关章节
 
+
+
 ## `.BSS`和`.COMMON`
 
 > In [computer programming](https://en.wikipedia.org/wiki/Computer_programming), the **block starting symbol** (abbreviated to **.bss** or **bss**) is the portion of an [object file](https://en.wikipedia.org/wiki/Object_file), executable, or [assembly language](https://en.wikipedia.org/wiki/Assembly_language) code that contains [statically allocated variables](https://en.wikipedia.org/wiki/Static_variable) that are **declared but have not been assigned a value yet** 
@@ -243,6 +245,9 @@ gcc -std=c11 test.c -o test.o && readelf -s test.o | grep haha
 参考：
 
 * https://stackoverflow.com/questions/16835716/bss-vs-common-what-goes-where
+* https://en.wikipedia.org/wiki/.bss
+
+
 
 # 一些特殊的节
 
