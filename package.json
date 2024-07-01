@@ -4,10 +4,10 @@
   "description": "my blog",
   "main": "blog.js",
   "dependencies": {
-    "markdown-it": "^8.3.1",
-    "markdown-it-highlightjs": "^3.0.0",
+    "markdown-it": "^14.1.0",
+    "markdown-it-highlightjs": "^3.6.0",
     "markdown-it-mathjax": "^2.0.0",
-    "mime-types": "^2.1.22"
+    "mime-types": "^2.1.35"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
