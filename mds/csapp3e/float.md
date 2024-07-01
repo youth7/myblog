@@ -177,6 +177,10 @@ $$\begin{equation}
 
 
 
+> 注：因为 $a$和 $b$处于同一个阶码， 所以 $E_a=E_b$ ，所以$2^{e_b} = 2^{e_a} = e = e_1e_2...e_k$
+
+
+
 令 $ε = {frac}_b-{frac}_a$，因为 $a$ 和 $b$ 是相邻的，所以  $ε=2^{-k}$，则差最终为
 
 $$\begin{equation}
