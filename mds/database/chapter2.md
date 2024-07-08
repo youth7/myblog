@@ -1,7 +1,8 @@
 # 一些基本概念
 
 ## 关系
-数据库是表的集合，一张表就是一个关系，关系是一系列元组的集合
+* 数据库：**表的集合**
+* 表：一张表就是一个关系，关系是**元组的集合**。网上有资料认为**表的结构**是 *关系模式* ，而一张带有数据的表就是一个关系，就像类与对象一样。
 
 ## 元组
 表中的一行称为一个元组
@@ -13,9 +14,14 @@
 列的取值范围称为域
 
 ## 关系模式
-由属性序列和各属性对应域组成（即表的结构？）
-数据库模式（database schema）和关系模式（relation schema）的关系：数据库模式是描述整个数据库的，它包含了各个表之间的关系。而各个表的细节，则是由关系模式描述。
-[What's the difference between relation schema and database schema?](https://www.quora.com/Whats-the-difference-between-relation-schema-and-database-schema)
+**定义**  
+由属性序列和各属性对应域组成（即表的结构？）  
+
+**辨析**  
+Q：数据库模式（database schema）和关系模式（relation schema）的关系？  
+A：数据库模式是描述整个数据库的，它包含了各个表之间的关系。而各个表的细节，则是由关系模式描述。
+
+参考： [What's the difference between relation schema and database schema?](https://www.quora.com/Whats-the-difference-between-relation-schema-and-database-schema)
 
 ## 模式图
 
