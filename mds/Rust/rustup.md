@@ -9,7 +9,7 @@
   *  The Windows SDK provides the latest headers, libraries, metadata, and tools for building Windows applications
   * 可以通过`vs_BuildTools.exe`（即`msbuild`）来顺带安装，[又或者独立下载安装](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)
 * **[Visual C++ Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170)**:
-  *  installs Microsoft C and C++ (MSVC) runtime libraries. Many applications built using Microsoft C and C++ tools require these libraries.
+  *  **The Visual C++ Redistributable installs Microsoft C and C++ (MSVC)  runtime libraries**. Many applications built using Microsoft C and C++  tools **require these libraries**. If your app uses those libraries, a  Microsoft Visual C++ Redistributable package must be installed on the  target system before you install your app
 
 
 # 安装rust时候究竟需要安装哪些
