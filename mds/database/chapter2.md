@@ -33,6 +33,12 @@ A：数据库模式是描述整个数据库的，它包含了各个表之间的�
 
 参考： [What's the difference between relation schema and database schema?](https://www.quora.com/Whats-the-difference-between-relation-schema-and-database-schema)
 
+> A relation schema defines the structure of a single table or relation in a relational database, including the names and data types of its columns. It specifies the attributes (columns) and their corresponding data  types that make up a particular table.
+>
+> In contrast, a database schema refers to the overall logical design and  structure of an entire database. It encompasses all the relation  schemas, as well as the relationships between the different tables in  the database. The database schema defines how the data is organized and  how the various tables interact with one another.
+>
+> The database schema provides a high-level view of the entire database,  while a relation schema focuses on the structure of an individual table  within that overall database design. The database schema is the  comprehensive blueprint for the entire database, while relation schemas  define the blueprints for each specific table.
+
 ## 模式图（schema diagram）
 
 ## 关系运算
