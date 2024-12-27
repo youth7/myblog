@@ -3,7 +3,7 @@
 
 # 疑惑
 刚开始学习C语言时候，看到的最基本的例子是这样子的
-```
+```c
 #include<stdio.h>
 int main(void){
 	printf("hello world\n");
@@ -12,7 +12,7 @@ int main(void){
 
 后来发现还可以这样
 
-```
+```c
 #include<stdio.h>
 int main(void){
 	printf                   ("hello world\n");
@@ -20,7 +20,7 @@ int main(void){
 ```
 
 甚至这样
-```
+```c
 #include<stdio.h>
 int main(void){
 	printf/*wtf?*/
@@ -46,7 +46,7 @@ int main(void){
 
 ```
 但是不可以这样
-```
+```c
 #include<stdio.h>
 int main(void){//此时会报编译错误
 	printf("hello 
@@ -112,7 +112,7 @@ echo -e "int main(void){int a\v =\f1;}" > test.c
 # 关于预处理
 C语言的源码进入编译之前有一个预处理的步骤，在C11的5.1.1.2中值得注意的是：
 
-* 源码中如果出现反斜杠(`/`)，并且后面跟着一个新行(new-line)字符的话，那么这个反斜杠和新行字符会一起删掉。只有当反斜杠出现在文件末尾的时候是例外。
+* 源码中如果出现反斜杠(`\`)，并且后面跟着一个新行(new-line)字符的话，那么这个反斜杠和新行字符会一起删掉。只有当反斜杠出现在文件末尾的时候是例外。
 * 注释会被替换成一个空格，新行符会被保留，剩下的所有white-space可能会被替换成一个空格或者原封不动，采取哪种处理最终由实现决定。
 
 这就解释了为何上面的程序可以有多个反斜杠实现换行。
