@@ -1,3 +1,7 @@
+已经完成RISCV汇编的翻译，关于RISCV的前置知识可以参考：https://github.com/youth7/An-Introduction-to-Assembly-Programming-with-RISC-V-CN
+
+
+
 ## 杂项
 
 * 汇编器中`as`的Directives见：https://sourceware.org/binutils/docs/as/Pseudo-Ops.html
@@ -189,7 +193,7 @@
 
 
 
-### Loads and Stores
+### Loads and Stores指令快速记忆
 
 $$
 \left\{

@@ -11,7 +11,7 @@ QEMU是一个**模拟器**，可以模拟除了CPU外等众多设备。注意QEM
 QEMU的两种模式：
 
 * System Emulation：对系统的全方位的底层模拟，可以模拟cpu、内存和各种设备。毫无疑问，编写OS时使用的就是这个模式。
-* [User Mode Emulation](https://www.qemu.org/docs/master/user/main.html)：这个模式的作用是：*In this mode, QEMU can launch processes compiled for one CPU on another CPU*，相当于模拟了程序的运行环境（意思是**在A平台上编译好的程序可以直接在B平台上面跑**？）。之所以这样是因为该模式提供了以下特性：
+* [User Mode Emulation](https://www.qemu.org/docs/master/user/main.html)：这个模式的作用是：*In this mode, QEMU can launch processes compiled for one CPU on another CPU*，相当于模拟了程序的运行环境（意思是**在A平台上编译好的程序可以直接在B平台上面跑**）。之所以这样是因为该模式提供了以下特性：
   * **System call translation**
   * **POSIX signal handling**：将host和虚拟CPU的信号重定向到QEMU中的目标程序上
   * **Threading**：在Linux上，QEMU模拟了`clone`系统调用，为每个QEMU虚拟线程都创建了一个与之对应的系统原生线程。

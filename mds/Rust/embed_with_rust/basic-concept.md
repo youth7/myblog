@@ -12,15 +12,15 @@
 
 关于JTAG各种Link（如Ulink、Jlink以及ST-Link）的关系可以看[《JTAG、Ulink、Jlink以及ST-Link的区别》](https://zhuanlan.zhihu.com/p/362465210)，简而言之，各种link是一个仿真器（转换器），它的连接方式如下：
 
-![](/imgs/jtag.jpg)  
+![](../../../imgs/jtag.jpg)  
 
 各种Link的作用就是将PC通过USB协议发出的调试指令转换为JTAG协议（协议转换器），这样才能使用PC端调试mcu。
 
 另外参考[这里](https://piolabs.com/blog/insights/debugging-embedded.html#debug-probes)：
 
->Nowadays there are **two prevalent interfaces** used for debugging embedded systems: JTAG and Serial Wire Debug (SWD). The **classic JTAG** was developed in the ’80s by the Joint Test Access Group as ****a standard**** for verifying designs and testing printed circuit boards after manufacture. Today, JTAG is widely adopted by the semiconductor industry and frequently used for programming, testing and debugging embedded systems. The main disadvantage of the JTAG interface is that it requires at least four pins (TRST is optional) for normal functioning. This might be a problem when we are using small package ICs with a limited number of pins. 
+>Nowadays there are **two prevalent interfaces** used for debugging embedded systems: JTAG and Serial Wire Debug (SWD). The **classic JTAG** was developed in the ’80s by the Joint Test Access Group as **a standard** for verifying designs and testing printed circuit boards after manufacture. Today, JTAG is widely adopted by the semiconductor industry and frequently used for programming, testing and debugging embedded systems. The main disadvantage of the JTAG interface is that it requires at least four pins (TRST is optional) for normal functioning. This might be a problem when we are using small package ICs with a limited number of pins. 
 
->There is**a simplified alternative interface called Serial Wire Debug (SWD)** developed by Arm. It replaces the JTAG interface with two signals - a single bi-directional data line (SWDIO) and clock (SWCLK), providing all the usual debug and test functionality with higher performance compared JTAG. Although a lot of modern microcontrollers support both JTAG and SWD interfaces, SWD is a **proprietary interface** and can be used mostly within the Arm ecosystem.
+>There is **a simplified alternative interface called Serial Wire Debug (SWD)** developed by Arm. It replaces the JTAG interface with two signals - a single bi-directional data line (SWDIO) and clock (SWCLK), providing all the usual debug and test functionality with higher performance compared JTAG. Although a lot of modern microcontrollers support both JTAG and SWD interfaces, SWD is a **proprietary interface** and can be used mostly within the Arm ecosystem.
 
 
 
@@ -75,19 +75,19 @@ SEGGER's Real Time Transfer (RTT) is the proven technology for system monitoring
 
 关于嵌入式debug架构的一般性描述可以看看[《Debugging with PlatformIO: Part 2. Debugging an Embedded Target》](https://piolabs.com/blog/insights/debugging-embedded.html#debug-probes),其结构如下，这篇文章很重要，它标明了几个概念：
 
-* debug interfaces：即jtag和swd
+* debug interfaces：即JTAG和SWD
 * debug probes：下面再介绍
 * debug server：host上连接debugger和debug probes的软件
 
-![](/imgs/debug-setup.jpg)
+![](../../../imgs/debug-setup.jpg)
 
 
 
 而具体化之后的方案则可以参考[《OpenOCD介绍》](https://bbs.huaweicloud.com/blogs/122621)，它将GDB、OpenOCD、目标系统之间的关系捋清楚。
 
-![](/imgs/700px-GDB_openOCD_focus_graph.png)  
+![](../../../imgs/700px-GDB_openOCD_focus_graph.png)  
 
-从上图可以看出，所谓的debug probe就是位于各种Link的内部，等下我们还会提到debug  probe。
+从上图可以看出，**所谓的debug probe就是位于各种Link的内部**，等下我们还会提到debug  probe。
 
 另外[probe-rs](https://github.com/probe-rs/probe-rs)官网是这样说的：
 
@@ -97,7 +97,7 @@ SEGGER's Real Time Transfer (RTT) is the proven technology for system monitoring
 
 因此probe-rs和OpenOCD是位于同一级别的，[`cargo-embed`](https://github.com/probe-rs/cargo-embed#cargo-embed)之所以有那么多神奇的功能就是因为probe-rs。
 
-![](/imgs/openocd.jpg)   
+![](../../../imgs/openocd.jpg)   
 
 
 
