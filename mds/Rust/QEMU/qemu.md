@@ -11,12 +11,10 @@ QEMU是一个**模拟器**，可以模拟除了CPU外等众多设备。注意QEM
 QEMU的两种模式：
 
 * System Emulation：对系统的全方位的底层模拟，可以模拟cpu、内存和各种设备。毫无疑问，编写OS时使用的就是这个模式。
-* [User Mode Emulation](https://www.qemu.org/docs/master/user/main.html)：这个模式的作用是：*In this mode, QEMU can launch processes compiled for one CPU on another CPU*，相当于模拟了程序的运行环境（意思是**在A平台上编译好的程序可以直接在B平台上面跑**）。之所以这样是因为该模式提供了以下特性：
+* [User Mode Emulation](https://www.qemu.org/docs/master/user/main.html)：这个模式的作用是：*In this mode, QEMU can launch processes compiled for one CPU on another CPU*，相当于模拟了程序的运行环境（意思是**在A平台上编译好的程序可以直接在B平台上面跑**）。其实现原理是该模式提供了以下特性：
   * **System call translation**
   * **POSIX signal handling**：将host和虚拟CPU的信号重定向到QEMU中的目标程序上
   * **Threading**：在Linux上，QEMU模拟了`clone`系统调用，为每个QEMU虚拟线程都创建了一个与之对应的系统原生线程。
-
-
 
 QEMU能运行在以下架构和OS：https://www.qemu.org/docs/master/about/build-platforms.html
 
@@ -34,30 +32,32 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 
 ### 简介
 
-### [invocation](https://www.qemu.org/docs/master/system/invocation.html#)
+### [invocation（命令行调用）](https://www.qemu.org/docs/master/system/invocation.html#)
 
 `qemu-system-x86_64 [options] [disk_image]`
 
 这些选项按照功能可分为多种类型，而课程中用到的参数有：
 
-#### Standard options
+* **Standard options**
+  * `-machine`：指定需要模拟的机器。这里指定的貌似是整机芯片组的架构而不仅仅是cpu架构，可以参考[这里](https://xiaobinzhao.github.io/2021/12/14/qemu%20 Machine Type/)
 
-* `-machine`：指定需要模拟的机器。这里指定的貌似是整机芯片组的架构而不仅仅是cpu架构，可以参考[这里](https://xiaobinzhao.github.io/2021/12/14/qemu%20 Machine Type/)
 
-#### Display Options
+* **Display Options**
+  * `-nographic`：禁用图形化，串口设备的输出会被重定向到QEMU monitor，这样是为了方便debug内核。
 
-* `-nographic`：禁用图形化，串口设备的输出会被重定向到QEMU monitor，这样是为了方便debug内核。
 
-#### Boot Image or Kernel specific
+* **Boot Image or Kernel specific**
+  * `-bios`：通过文件名指定BIOS程序。根据多阶段启动的思路（见[这里](http://rcore-os.cn/rCore-Tutorial-Book-v3/appendix-c/index.html)），在OS启动前可以有多个启动阶段，而负责各个阶段的启动程序可以用这个选项来指定
 
-* `-bios`：通过文件名指定BIOS程序。根据多阶段启动的思路（见[这里](http://rcore-os.cn/rCore-Tutorial-Book-v3/appendix-c/index.html)），在OS启动前可以有多个启动阶段，而负责各个阶段的启动程序可以用这个选项来指定
 
-#### Debug/Expert optionS
+* **Debug/Expert optionS**
 
-* `-s`：Shorthand for -gdb [tcp::1234](tcp::1234)
-* `-S`：Do not start CPU at startup (you must type ‘c’ in the monitor).
+  * `-s`：Shorthand for -gdb [tcp::1234](tcp::1234)
 
-### [Device Emulation](https://www.QEMU.org/docs/master/system/device-emulation.html)
+  * `-S`：Do not start CPU at startup (you must type ‘c’ in the monitor).
+
+
+### [Device Emulation（设备模拟）](https://www.QEMU.org/docs/master/system/device-emulation.html)
 
 `--device`：上面的`-machine`只模拟了芯片组（SoCs），但有些时候需要模拟一些与其进行交互的外设，此时就需要需要模拟外设。一些关键的概念有：
 
@@ -77,17 +77,17 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 
 ### QEMU monitor
 
-QEMU monitor可以给QEMU emulator发送复杂的命令，包括：
+**QEMU monitor的作用：可以给QEMU emulator发送复杂的命令，包括：**
 
 * 插拔媒体设备，例如CD和软盘
 * 将VM保存到硬盘或者从硬盘恢复VM
 * 无需外部的debugger来检查VM的内部状态
 
-参考资料:
+> 注意emulator的作用是设备模拟，而monitor的作用则更像是用户的一个shell，用来和emulator进行交互。
 
-* [QEMU (简体中文)](https://wiki.archlinux.org/title/QEMU_(%E7%AE%80%E4%BD%93%E4%B8%AD%E6%96%87)#QEMU_%E7%9B%91%E8%A7%86%E5%99%A8)
 
-* [使用 QEMU 监视器管理虚拟机](https://documentation.suse.com/zh-cn/sles/15-SP2/html/SLES-all/cha-qemu-monitor.html#sec-qemu-monitor-access)
+
+
 
 ### Disk Images
 
@@ -127,7 +127,7 @@ QEMU monitor可以给QEMU emulator发送复杂的命令，包括：
 
 ### QEMU System Emulator Targets
 
-#### **RISC-V**（目前只关注这个target） 
+**RISC-V**（目前只关注这个target） 
 
 当borad model为 `sifive_u` 或者 `virt`时，可以指定使用不同的risc-v CPU固件来启动
 
@@ -137,14 +137,47 @@ QEMU monitor可以给QEMU emulator发送复杂的命令，包括：
 
 
 
-## User Mode Emulation
+## User Mode Emulation的例子
 
-本文只介绍System Emulation，故略
+在X86的Ubuntu20上编译RISCV64的C语言代码，然后通过user mode emulation运行的过程如下：
 
-## [一些工具](https://www.qemu.org/docs/master/tools/index.html)
-## [System Emulation的管理与交互](https://www.qemu.org/docs/master/interop/index.html)
-## [System Emulation Guest Hardware Specifications](https://www.qemu.org/docs/master/specs/index.html#)
-This section of the manual contains specifications of guest hardware that is specific to QEMU
+首先需要安装相关GCC工具链：
+
+```bash
+sudo apt update
+sudo apt install gcc-riscv64-linux-gnu g++-riscv64-linux-gnu
+```
+
+接着准备C语言源文件`main.c`
+
+```C
+#include <stdio.h>
+
+int main() {
+    printf("Hello, RISC-V!\n");
+    return 0;
+}
+```
+
+然后使用刚才安装的GCC工具链进行交叉编译
+
+```bash
+riscv64-linux-gnu-gcc -static main.c
+# 这里使用静态链接，绕过后面的"Could not open '/lib/ld-linux-riscv64-lp64d.so.1"错误
+```
+
+最后使用QEMU运行：
+
+```bash
+$ qemu-riscv64 a.out 
+Hello, RISC-V!
+```
+
+>  这里假设用户已经按照官网的教程编译好QEMU模拟器
+
+
+
+
 
 
 
@@ -168,31 +201,4 @@ sudo make
 ```
 
 
-
-
-
-
----
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-## 以下为待分类的旧内容
-
-### QEMU监视器（[QEMU monitor](https://www.QEMU.org/docs/master/system/monitor.html)）
-
-### 启动QEMU时的命令行选项
-
-### QEMU运行时的快捷键
 
