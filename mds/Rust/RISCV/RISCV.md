@@ -13,11 +13,7 @@
 
 ​	
 
-
-
-## Integer Registers
-
-按照功能分类：
+## 寄存器分类
 
 | 功能            | ABI名称    | 备注                           | Caller保存 | Callee保存 |
 | --------------- | ---------- | ------------------------------ | ---------- | ---------- |
@@ -33,7 +29,7 @@
 
 
 
-## 指令格式说明
+## 指令二进制格式
 <table class="wikitable" style="text-align:center;">
 <caption>32-bit RISC-V instruction formats
 </caption>
@@ -168,6 +164,26 @@
 * `opcode` (7 bits): Partially specifies which of the 6 types of *instruction formats*.
 * `funct7`, and `funct3` (10 bits): These two fields, further than the *opcode* field, specify the operation to be performed.
 * `rs1`, `rs2`, or `rd` (5 bits): Specifies, by index,  the register, resp., containing the first operand (i.e., source  register), second operand, and destination register to which the  computation result will be directed.
+
+
+
+## RISCV汇编语法
+
+### 语句格式
+
+**`[label:]  [operation]  [comment]`**
+
+其中`operation`的可能性如下：
+
+* instruction：机器指令
+* pseudo-instruction：伪指令
+* directive：汇编指示（指示汇编器进行某些操作）
+* macro：宏
+
+### 指令的操作对象
+
+* 寄存器
+* 内存
 
 
 
