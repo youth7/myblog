@@ -20,7 +20,7 @@
 
 2. [《discovery》学习笔记](../embed_with_rust/discovery.md)
 
-3. [一些嵌入式基础技术](../embed_with_rust/basic-concept.md)
+3. [一些嵌入式基础技术](../../others//embed/basic-concept.md)
 
 
 # QEMU基础
