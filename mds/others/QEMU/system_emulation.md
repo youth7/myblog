@@ -51,10 +51,9 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 
 
 * **Debug/Expert optionS**
-
-  * `-s`：Shorthand for -gdb [tcp::1234](tcp::1234)
-
-  * `-S`：Do not start CPU at startup (you must type ‘c’ in the monitor).
+* `-s`：Shorthand for -gdb tcp::1234
+  
+* `-S`：Do not start CPU at startup (you must type ‘c’ in the monitor).
 
 
 ### [Device Emulation（设备模拟）](https://www.QEMU.org/docs/master/system/device-emulation.html)
