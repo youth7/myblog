@@ -20,8 +20,8 @@ _start:
 编译上述文件，得到`a.out`
 
 ```bash
-riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall -Ttext=0x80000000 loop.s  
-riscv64-unknown-elf-objcopy -O binary a.out a.bin
+riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall -Ttext=0x80000000 loop.s  -o start.elf 
+riscv64-unknown-elf-objcopy -O binary start.elf start.bin
 # 顺便生成bin文件，等下会用到
 ```
 
@@ -118,7 +118,7 @@ static const MemMapEntry virt_memmap[] = {
 ## 使用QEMU加载并运行
 
 ```bash
-qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel a.out -s -S
+qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf -s -S
 ```
 
 
@@ -128,7 +128,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel a.out -s 
 ## 使用GDB进行调试
 
 ```bash
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' a.out
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' start.
 ```
 
 * `-q`："Quiet".  Do not print the introductory and copyright messages.
