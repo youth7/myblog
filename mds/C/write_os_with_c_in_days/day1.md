@@ -128,7 +128,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 ## 使用GDB进行调试
 
 ```bash
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' start.
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' start.elf
 ```
 
 * `-q`："Quiet".  Do not print the introductory and copyright messages.
