@@ -60,9 +60,16 @@ Hello, RISC-V!
 
 
 
-二是运行时候告诉QEMU动态链接库的位置，具体见下一步（当libc6-riscv64-cross被正确安装后依然报上面的错误时，才用这个方法）。
+二是先安装RISC-V 架构的 C 库和动态链接器，然后运行时候告诉QEMU动态链接库的位置，
 
 ```bash
+# debian和ubuntu上安装
+sudo apt-get install gcc-riscv64-linux-gnu libc6-riscv64-cross libc6-dev-riscv64-cross
+
+# 检查动态链接器是否已正确安装到系统中：
+find /usr/ -name "ld-linux-riscv64-lp64d.so.1"
+
+
 $ qemu-riscv64 -L /usr/riscv64-linux-gnu a.out # 运行告知动态链接库的位置 
 Hello, RISC-V!
 ```
