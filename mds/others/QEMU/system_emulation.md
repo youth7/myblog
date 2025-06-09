@@ -47,7 +47,18 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 
 
 * **Boot Image or Kernel specific**
+
   * `-bios`：通过文件名指定BIOS程序。根据多阶段启动的思路（见[这里](http://rcore-os.cn/rCore-Tutorial-Book-v3/appendix-c/index.html)），在OS启动前可以有多个启动阶段，而负责各个阶段的启动程序可以用这个选项来指定
+
+  * `-kernal`：
+
+  * `-device loader,addr=<addr>,data=<data>,data-len=<data-len>[,data-be=<data-be>][,cpu-num=<cpu-num>]`：
+
+    > 关于`-bios` `-kernel`和`-device loader`之间的区别可以看[这里](https://stackoverflow.com/questions/58420670/qemu-bios-vs-kernel-vs-device-loader-file)，简单归纳就是：
+    >
+    > - **`-kernel`** 是为操作系统内核设计的 “智能加载器”，适配特定架构的启动流程，但会引入额外的自动行为（如 DTB、stub）。
+    > - **`-bios`** 用于模拟硬件固件启动，依赖机器模型和固件格式，不适合裸机 ELF 加载。
+    > - **`-device loader`** 是最直接的裸机加载方式，适合完全控制内存布局和启动流程的场景，但需手动处理地址和 CPU 状态。
 
 
 * **Debug/Expert optionS**

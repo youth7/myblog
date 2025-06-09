@@ -1,8 +1,10 @@
 # 用QEMU在RISCV裸机上调试程序
 
+完整代码见：https://github.com/youth7/write_rvos_with_c_in_n_days/tree/day1
+
 ## 编写程序
 
-编写一个简单的程序，它的唯一功能就是不断对`a0`的值加1
+编写一个简单的程序（`loop.s`），它的唯一功能就是不断对`a0`的值加1
 
 ```assembly
 .global _start
@@ -13,7 +15,7 @@ _start:
 ```
 
 * 注意最后必须换行，否则会报一个警告：`Warning: end of file not at end of a line; newline inserted`
-* 同时必须定义全局符号`_start`，原因见[这里](../ld/ld.md)
+* 同时必须定义全局符号`_start`，原因见[这里](../../others/ld/ld.md)
 
 ## 编译
 
@@ -25,7 +27,7 @@ riscv64-unknown-elf-objcopy -O binary start.elf start.bin
 # 顺便生成bin文件，等下会用到
 ```
 
-关于gcc中和链接相关的选项，以及ld自身的选项，请参考[这里](../ld/ld.md)
+关于gcc中和链接相关的选项，以及ld自身的选项，请参考[这里](../../others/ld/ld.md)
 
 
 
@@ -35,13 +37,13 @@ riscv64-unknown-elf-objcopy -O binary start.elf start.bin
 
 > Do not use the **standard system startup files or libraries** when linking......
 
-而启动文件（Startup File）是嵌入式系统开发中的核心组件之一，它用于初始化系统并为主程序的运行做好准备。在大多数情况下，启动文件是用汇编语言编写的，并且与具体的处理器架构和工具链紧密相关。具体参考[这里](https://zhuanlan.zhihu.com/p/12989475903)
+启动文件（Startup File）是嵌入式系统开发中的核心组件之一，它用于初始化系统并为主程序的运行做好准备。在大多数情况下，启动文件是用汇编语言编写的，并且与具体的处理器架构和工具链紧密相关。具体参考[这里](https://zhuanlan.zhihu.com/p/12989475903)
 
 
 
 ### `-fno-builtin`
 
-gcc中和C相关的选项，简单来说即告诉编译器要保持函数调用关系，不要使用built-in版本。
+gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调用方式，不要使用built-in版本。
 
 > ```
 > -fno-builtin
@@ -128,7 +130,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 ## 使用GDB进行调试
 
 ```bash
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' start.elf
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' -ex 'b _start'  -ex 'display/z $$a0'   start.elf
 ```
 
 * `-q`："Quiet".  Do not print the introductory and copyright messages.
@@ -136,18 +138,48 @@ riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' start.elf
 
 
 
+## 不调试，直接运行二进制文件
+
+```bash
+qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf 
+```
+
+
+
 
 
 ## 将上述过程用Makefile来控制
 
+```makefile
+
+compile: loop.s
+	@echo "start to compile..."
+	@riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall -Ttext=0x80000000 loop.s  -o start.elf 
+	@riscv64-unknown-elf-objcopy -O binary start.elf start.bin	
+	@echo "compile done"
 
 
+debug: compile
+	@echo "start to debug..."
+	@qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf -s -S & 
+	@riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' -ex 'b _start'  -ex 'display/z $$a0'   start.elf
+	@echo "debug done"
+
+run: compile
+	@echo "start to run..."
+	@qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf 
+	@echo "run done"
+
+clean:
+	@echo "start to clean..."
+	@rm -rf start.*
+	@echo "clean done"
+```
+
+然后运行
+
+```bash
+make clean debug
+```
 
 
-# 用QEMU在RISCV裸机上运行程序
-
-## 编写程序
-
-## 编译
-
-## 使用QEMU加载并运行
