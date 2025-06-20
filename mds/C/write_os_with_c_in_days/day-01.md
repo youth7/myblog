@@ -1,4 +1,4 @@
-# 用QEMU在RISCV裸机上调试程序
+# 编写第一个汇编程序，使其运行在QEMU模拟的RISCV裸机上
 
 完整代码见：https://github.com/youth7/write_rvos_with_c_in_n_days/tree/day1
 
@@ -43,7 +43,7 @@ riscv64-unknown-elf-objcopy -O binary start.elf start.bin
 
 ### `-fno-builtin`
 
-gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调用方式，不要使用built-in版本。
+gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调用方式，不要使用built-in（gcc内部的魔改）版本。
 
 > ```
 > -fno-builtin
@@ -148,7 +148,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 
 
 
-## 将上述过程用Makefile来控制
+## 用Makefile来控制上述过程
 
 ```makefile
 
@@ -181,5 +181,4 @@ clean:
 ```bash
 make clean debug
 ```
-
 
