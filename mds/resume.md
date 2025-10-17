@@ -1,23 +1,23 @@
 # 基本信息
 
 姓名：黄海涌  
-年龄：37  
+年龄：41  
 籍贯：广州  
 手机：**135 8058 5282**  
 邮箱：**youth7@foxmail.com**  
 
 # 求职意向
-地点：广州 、 深圳  
-方向：架构师、后端主程
+地点：广州 
+方向：后端开发
 
 # 教育经历
 时间：2004~2008  
 院校：广东财经大学  
-专业：信息管理与信息系统（软件工程方向，本科学士学位）  
-英语：CET6 488 
+专业：信息管理与信息系统（软件工程方向）  
+英语：CET6 
 
 # 个人技术博客
-[我的博客（http://42.192.120.189）](http://42.192.120.189)
+[我的博客（https://github.com/youth7/myblog/blob/master/mds/index.md）](https://github.com/youth7/myblog/blob/master/mds/index.md)
 
 [我的GitHub（https://github.com/youth7）](https://github.com/youth7)
 
@@ -30,15 +30,11 @@
 | Node.js/JavaScript | ★★★★★ | 主力开发语言，深入了解                    |
 | Rust/C/Java                 | ★★★☆  | 有相当的开发经验，熟练使用                  |
 | TCP/HTTP               | ★★★★  | 熟悉TCP/HTTP/WebSocket协议，使用底层TCP API实现过HTTP1.1/WebScoket服务器的部分特性 |
-| 微服务开发               | ★★★★  | 熟悉微服务开发的一般原则、方法、工具 |
+| 微服务开发               | ★★★★  | 熟悉微服务开发的一般原则、方法、工具。对架构有基本的理解。 |
 | MongoDB                | ★★★☆  | 熟练使用                                  |
 | SQL                    | ★★★☆  | 熟练使用                                  |
-| Spark/Scala/Python     | ★★    | 有较少的使用经验                          |
+| Python     | ★★    | 有较少的使用经验                          |
 | 机器学习               | ★     | 学习过相关数学原理，了解                  |
-
-
-
-
 
 
 # 自我评价
@@ -46,7 +42,9 @@
 * 扎实的计算机基础，对操作系统、计算机网络、数据库原理都有较为完整的认识。
 * 具有良好的分析、比较、解决问题能力，良好的抽象能力
 * 热爱技术，热爱分享
-* 喜欢线性代数和概率统计
+  * 翻译了书籍[《An Introduction to Assembly Programming with RISCV》](https://github.com/youth7/An-Introduction-to-Assembly-Programming-with-RISC-V-CN)
+  * 业余时间尝试编写一个[基于RISCV的简单操作系统](https://github.com/youth7/myblog/blob/master/mds/C/write_os_with_c_in_days/day-01.md)
+
 
 ## 性格
 * 认真，坦率，有责任感
@@ -62,14 +60,25 @@
 
 |时间|机构|职位|职责描述|
 |-|-|-|-|
-|2019/5至今|暗物智能科技| 高级后端开发工程师 |参与谙心课堂、谙心助教等产品的设计和开发|
+|2019/5至今|暗物智能科技| 高级后端开发工程师 |参与谙心课堂、谙心助教、技能人才数字化测评等产品的设计和开发|
 |2018/4~2019/4|卖家宝科技|Node.js工程师|产品部后台主程，负责相关项目的架构和开发 |
 |2014/6~2017/4|深圳恒拓高科|Node.js工程师|轻应用小组后台主程，负责相关项目的架构和开发|
 |2012/6~2014/3|深圳福瑞博德|SAS工程师|外派汇丰软件参与TradeNET开发|
 |2008/7~2010/5|亚信联创|Java工程师|参与企业邮箱开发 |
 
-
 # 项目经验
+
+## 技能人才数字化测评
+
+* 项目描述：对电网内员工的技能考核，由传统的人工考核转为半自动化的AI考核
+* 使用技术：Node.js + Java + MySQL + MongoDB + Python
+* 负责模块：负责工程端整体架构设计和主要实现。
+* 技术难点：
+  * 系统抽象。分析归纳业务，提取一个灵活且容易理解的抽象模型，保持系统的可理解性和可维护性。
+  * 从零搭建系统，分别用nodejs和java两种语言实现系统，完成大部分代码的编写和测试。
+
+
+
 ## AI课程与技能实训平台
 * 项目描述：针对K12与高职学生的人工智能课程教学平台
 * 使用技术：Node.js + Java + MySQL + MongoDB + MQTT + K8S + Istio + Socket.IO
@@ -79,13 +88,7 @@
     * 技术难题攻坚（JupyterHub服务线性扩容方案调研）
     * 项目架构调整，微服务重拆分，解耦重构
 
-<br/>
 
-<br/>
-
-<br/>
-
-<br/>
 
 ## 谙心助教
 * 项目描述：小学数学自动解题
@@ -93,9 +96,9 @@
 * 使用技术：Node.js + Socket.io
 
 * 负责模块：主要开发以下的内部库
-    * 位图转SVG（[成果演示：http://42.192.120.189/imgs/b2s.jpg](http://42.192.120.189/imgs/b2s.jpg)）
-    * 动画协议开发（[成果演示：http://42.192.120.189/imgs/binary_tree_api.jpg](http://42.192.120.189/imgs/binary_tree_api.jpg)）
-    * 错误区域自动检测算法（[成果演示：http://42.192.120.189/imgs/formal_analysis.jpg](http://42.192.120.189/imgs/formal_analysis.jpg)）
+    * 位图转SVG（[成果演示：https://github.com/youth7/myblog/tree/master/imgs/b2s.jpg](https://github.com/youth7/myblog/tree/master/imgs/b2s.jpg)）
+    * 动画协议开发（[成果演示：https://github.com/youth7/myblog/tree/master/imgs/binary_tree_api.jpg](https://github.com/youth7/myblog/tree/master/imgs/binary_tree_api.jpg)）
+    * 错误区域自动检测算法（[成果演示：https://github.com/youth7/myblog/tree/master/imgs/formal_analysis.jpg](https://github.com/youth7/myblog/tree/master/imgs/formal_analysis.jpg)）
     
 * 技术难点：
     * 对开放性问题进行信息收集、分析、设计、实现，并取得阶段性成果
@@ -128,8 +131,6 @@
     * 解决请求美国eBay服务器API时大量timeout的问题（最终通过修改libuv的线程池数+开启Http1.1的keep alive，使得timeout问题降至一个非常低的水平）
 
 
-
-<br/>
 
 ## 同事圈/通用表单/移动考勤
 * 部分源码：
