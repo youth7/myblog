@@ -121,7 +121,24 @@ static const MemMapEntry virt_memmap[] = {
 
 2. 加载阶段的内存布局：必须把ELF文件加载到适合的位置，满足编译时的地址约束。
 
-`-Ttext=0x80000000`只是限定的步骤1的行为，关于步骤2，尚未清晰QEMU是怎么实现的，可能是默认就是加载到地址`0x80000000`？
+
+
+GCC和Qemu都以0x80000000为起始地址地址，这是因为该地址是 RISC-V 生态的 “约定俗成”—— 硬件厂商、模拟器（如 QEMU）、编译器（如 GCC）都遵循该标准，确保软件能在不同平台上兼容运行。
+
+但奇怪的是，在**[SiFive FE310 芯片数据手册](https://www.starfivetech.com/uploads/fe310-g000-manual-v3p2.pdf)（RISC-V 32 位参考硬件）**中，似乎并没有明确说明这点。**第 4.3 节 Memory Map**中，地址段`0x80000000`~`0x80003FFF`的描述是DTIM（Data Tightly Integrated Memory）。问了下大模型，大致意思是：
+
+> 总结逻辑闭环：
+>
+> 1. FE310 硬件中，`0x80000000` 是 DTIM（片上核心内存）的起始地址；
+> 2. FE310 的 Boot ROM 引导程序，默认将用户程序复制到 DTIM（0x80000000）并跳转执行；
+> 3. RISC-V 生态（包括 QEMU）采纳该地址作为 “32 位系统的默认加载 / 执行地址”，确保软件兼容；
+> 4. QEMU 的 `virt` 机器简化了 Boot ROM 流程，直接将 `-kernel` 镜像加载到该标准地址，同时扩展内存大小以适配实际使用场景。
+>
+> 简单说：QEMU 加载到 `0x80000000`，是对 FE310 硬件 “DTIM 地址 + Boot 跳转逻辑” 的**生态级兼容**，而非 1:1 复刻硬件，但核心地址约定完全一致。
+
+
+
+
 
 
 
@@ -131,40 +148,29 @@ static const MemMapEntry virt_memmap[] = {
 qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf -s -S
 ```
 
-一些概念
 
-| **维度**     | **BIOS**                                                     | **BOOTLOADER**                                               |
-| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| **本质**     | 固化在主板芯片中的**硬件固件**（属于硬件层面）               | 存储在启动设备（如硬盘）中的**软件程序**（属于软件层面）     |
-| **核心功能** | 1. 硬件初始化（如内存、显卡、硬盘检测）<br /> 2. 检测启动设备（按启动顺序查找） <br/>3. 找到并移交控制权给 BOOTLOADER | 1. 从启动设备中定位操作系统内核<br/> 2. 加载内核到内存并启动<br/> 3. （部分高级功能）提供启动菜单（如双系统选择） |
-| **存储位置** | 主板上的 ROM/EEPROM 芯片（断电不丢失）                       | 启动设备的第一个扇区（如硬盘的 MBR）                         |
-| **运行阶段** | 计算机通电后第一个运行的程序（启动最早期）                   | BIOS 完成硬件检测后运行（启动中期）                          |
-| **依赖关系** | 不依赖 BOOTLOADER，但需要找到 BOOTLOADER 才能继续启动        | 完全依赖 BIOS 启动（由 BIOS 加载并执行）                     |
 
-BIOS是**硬件厂商（注意）**固化在ROM中的一段代码，它只熟悉主板，对BOOTLOADER一无所知，只是双方协议好BOOTLOADER的位置，以便BIOS自检结束后能够将控制权转交给BOOTLOADER。
+
+
+
 
 
 
 ## QEMU启动阶段
 
-Qemu 模拟的启动流程则可以分为三个阶段：
 
-* 第一个阶段由固化在 Qemu 内的一小段汇编程序负责；
-* 第二个阶段由 bootloader 负责；
-* 第三个阶段则由内核镜像负责。
-
-**第一阶段**：
-
-按照作者的定义（下图），位于`0x1000`的这段代码属于bootloader，但个人认为这应该是BIOS的代码，原因如下：
-
-1. 这段代码固化在QEMU中，使用者无法修改，性质上和真实的BIOS差不多
-2. 在[rCore-Tutorial-Book-v3 3.6.0-alpha.1 文档](https://rcore-os.cn/rCore-Tutorial-Book-v3/index.html)中，rust-sbi才是真正的bootloader，它位于地址`0x80000000`，rust-sbi负责引导系统内核。
-
-其实真正重要的是，我们要理解启动的分阶段的，至于哪个阶段叫什么名称并不重要。
 
 ![](../../../imgs/qemu-riscv-address.jpg)
 
-下面验证一下这点，在运行上一节的命令之后，QEMU停下来并等待连接调试。我们连接上GDB server，然后观察地址和相关代码：
+
+
+
+
+[请看这里](./boot-compare.md)，因为**QEMU 直接跳过了 Mask ROM→SPL→U-Boot 的完整流程，将用户程序（`start.elf`）直接加载到 `0x8000_0000`，本质是模拟了 “引导流程全部完成后” 的状态，方便开发者调试**。
+
+
+
+下面我们来验证这点，在运行上一节的命令之后，QEMU停下来并等待连接调试。我们连接上GDB server，然后观察地址（**Mask Rom的代码，地址为0x1000**）和相关代码：
 
 ```bash
 riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x1000, +30'  start.elf
@@ -207,18 +213,6 @@ $1 = 0x80000000
 
 
 
-**第二阶段（bootloader阶段）**：
-
-本实验中的操作系统比较简单，因此缺少了这个抽象层，在真实环境中这个阶段通常由rust-sbi或者open-sbi实现，提供一些基础的功能并引导操作系统
-
-
-
-**第二阶段（kernel阶段）**：
-
-略
-
-
-
 
 
 ## 使用GDB进行调试
@@ -229,17 +223,6 @@ riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' -ex 'b _start'  -e
 
 * `-q`："Quiet".  Do not print the introductory and copyright messages.
 * `-ex`：Execute given GDB command
-
-从下图可知，QEMU启动后会执行以下动作：
-
-* 启动bootloader（位于地址0x1000）
-* bootloader会将控制权交给kernel（位于地址0x8000）
-
-
-
-
-
-
 
 
 

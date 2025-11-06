@@ -58,7 +58,19 @@ ENTRY(_start)
 
 # 关于ld选项的传递问题
 
-GCC中和`ld`相关的选项参考[这里](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)。注意，**这是一个GCC的选项**，GCC内部通过读取这些选项来控制调用`ld`时的一些行为。
+GCC中和`ld`相关的选项参考[这里](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)。注意，**这些都是GCC的选项**，GCC将这些选项传递给ld，来控制调用`ld`时的一些行为。
+
+> ```
+> -Wl,option
+> ```
+>
+> Pass `option` as an option to the linker.  If `option` contains commas, it is split into multiple options at the commas.  You can use this syntax to pass an argument to the option. 
+>
+> For example, `-Wl,-Map,output.map` passes `-Map output.map` to the linker.  When using the GNU linker, you can also get the same effect with `-Wl,-Map=output.map`.
+
+
+
+
 
 而`ld`自身的选项参考[这里](https://sourceware.org/binutils/docs/ld/Options.html)。关于`ld`选项有一点需要说明：
 
@@ -67,6 +79,10 @@ GCC中和`ld`相关的选项参考[这里](https://gcc.gnu.org/onlinedocs/gcc/Li
 >  if the linker is being invoked indirectly, via a compiler driver (e.g. ‘gcc’) then all the linker command-line options should be prefixed by ‘-Wl,’ (or whatever is appropriate for the particular compiler driver) like this:
 >
 >  ` gcc -Wl,--start-group foo.o bar.o -Wl,--end-group`
+
+
+
+
 
 
 
