@@ -1,4 +1,4 @@
-# 使用C语言实现day1的功能
+# 使用C语言实现day2的功能
 
 本章的任务，是在day1的基础上，使用C语言（`kernel.c`）来实现剩余的功能，而汇编语言（`start.s`）仅仅做初始化和加载工作。
 
@@ -172,7 +172,6 @@ Dump of assembler code for function start_kernel:
    0x80000434 <+28>:    j       0x80000430 <start_kernel+24>
 End of assembler dump.
 ```
-
 
 
 

@@ -81,7 +81,20 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 * graphical frontends的快捷键见[这里](https://www.QEMU.org/docs/master/system/keys.html)
 
 * character backend multiplexer的快捷键见[这里](https://www.QEMU.org/docs/master/system/mux-chardev.html)（这里能使用的命令都是用`Ctrl-a`作为前缀转义过的，似乎是为了区别QEMU monitor中可用的命令，常用的有：
-  * Ctrl-a x：退出模拟器
+
+  | Key Sequence  | Action                                                       |
+  | ------------- | ------------------------------------------------------------ |
+  | Ctrl+a h      | Print this help                                              |
+  | **Ctrl+a x**  | **Exit emulator**                                            |
+  | Ctrl+a s      | Save disk data back to file (if -snapshot)                   |
+  | Ctrl+a t      | Toggle console timestamps                                    |
+  | Ctrl+a b      | Send break (magic sysrq in Linux)                            |
+  | Ctrl+a c      | Rotate between the frontends connected to the multiplexer (usually this switches between the monitor and the console) |
+  | Ctrl+a Ctrl+a | Send the escape character to the frontend                    |
+
+  
+
+
 
 
 

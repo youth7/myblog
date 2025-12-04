@@ -176,6 +176,9 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x1000, +30'  start.elf
 ```
 
+> * `-q`："Quiet".  Do not print the introductory and copyright messages.
+> * `-ex`：Execute given GDB command
+
 会有如下输出：
 
 ```bash
@@ -220,9 +223,6 @@ $1 = 0x80000000
 ```bash
 riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' -ex 'b _start'  -ex 'display/z $$a0'   start.elf
 ```
-
-* `-q`："Quiet".  Do not print the introductory and copyright messages.
-* `-ex`：Execute given GDB command
 
 
 
