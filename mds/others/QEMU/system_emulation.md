@@ -1,5 +1,3 @@
-
-
 ## 简介
 
 QEMU是一个**模拟器**，可以模拟除了CPU外等众多设备。注意QEMU和virtualbox之类是有区别的，前者具emulation和virtualization的能力，而后者只有virtualization的能力，关于两者的区别可以参考[这里](https://stackoverflow.com/questions/6234711/what-are-the-specific-differences-between-an-emulator-and-a-virtual-machine)。简单来说：
@@ -10,15 +8,23 @@ QEMU是一个**模拟器**，可以模拟除了CPU外等众多设备。注意QEM
 
 QEMU的两种模式：
 
-* System Emulation：对系统的全方位的底层模拟，可以模拟cpu、内存和各种设备。毫无疑问，编写OS时使用的就是这个模式。
-* [User Mode Emulation](https://www.qemu.org/docs/master/user/main.html)：这个模式的作用是：*In this mode, QEMU can launch processes compiled for one CPU on another CPU*，相当于模拟了程序的运行环境（意思是**在A平台上编译好的程序可以直接在B平台上面跑**）。其实现原理是该模式提供了以下特性：
-  * **System call translation**
-  * **POSIX signal handling**：将host和虚拟CPU的信号重定向到QEMU中的目标程序上
-  * **Threading**：在Linux上，QEMU模拟了`clone`系统调用，为每个QEMU虚拟线程都创建了一个与之对应的系统原生线程。
+**System Emulation**：
 
-QEMU能运行在以下架构和OS：https://www.qemu.org/docs/master/about/build-platforms.html
+对系统的全方位的底层模拟，可以模拟cpu、内存和各种设备。毫无疑问，编写OS时使用的就是这个模式。
 
-QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.html
+
+
+**User Mode Emulation**：
+
+这个模式的作用是：
+
+>  *In this mode, QEMU can launch processes compiled for one CPU on another CPU*，
+
+相当于模拟了程序的运行环境（意思是**在A平台上编译好的程序可以直接在B平台上面跑**）。其实现原理是该模式提供了以下特性：
+
+* **System call translation**
+* **POSIX signal handling**：将host和虚拟CPU的信号重定向到QEMU中的目标程序上
+* **Threading**：在Linux上，QEMU模拟了`clone`系统调用，为每个QEMU虚拟线程都创建了一个与之对应的系统原生线程。
 
 
 
@@ -33,6 +39,8 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 ### 简介
 
 ### [invocation（命令行调用）](https://www.qemu.org/docs/master/system/invocation.html#)
+
+> 常见的参数可以参考[这里](./common-parame)
 
 `qemu-system-x86_64 [options] [disk_image]`
 
@@ -64,7 +72,7 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 * **Debug/Expert optionS**
 * `-s`：Shorthand for -gdb tcp::1234
   
-* `-S`：Do not start CPU at startup (you must type ‘c’ in the monitor).
+* `-S`：Do not start CPU at startup (you must type `c` in the monitor).
 
 
 ### [Device Emulation（设备模拟）](https://www.QEMU.org/docs/master/system/device-emulation.html)
@@ -110,13 +118,37 @@ QEMU能模拟以下架构：https://www.qemu.org/docs/master/about/emulation.htm
 
 
 
+> Normally, if QEMU is compiled with graphical window support, **it displays output such as guest graphics, guest console, and the QEMU monitor in a window**. 
+>
+> With this option（即`-nographic`）, you can totally disable graphical output so that QEMU is a simple command line application. **The emulated serial port is redirected on the console and muxed with the monitor (unless redirected elsewhere explicitly)**. （串口输出和monitor的输出混在一起输出到宿主机的控制台，但是可以通过下面的命令在切换到monitor模式）
+>
+> Therefore, you can still use QEMU to debug a Linux kernel with a serial console. **Use `C-a h` for help on switching between the console and monitor**.
+
+
+
+进入monitor的方法：
+
+- 方法一：**默认快捷键**
+
+  1. 在 QEMU 运行中的终端内，先按下 `Ctrl+A`（此时 QEMU 会暂停输出）。
+
+  2. 松开所有按键，再按下 `C`，此时终端会显示 `(qemu)` 提示符，表示已进入 Monitor。
+
+- 方法二：**通过串口重定向 Monitor**
+
+  1. 如果启动时将 Monitor 绑定到串口（如 `-serial mon:stdio`），可以直接通过串口终端访问 Monitor（无需快捷键）。
+
+  2. 动后直接显示 `(qemu)` 提示符，无需额外操作。
+
+
+
 
 
 ### Disk Images
 
 ### Generic Loader
 
-通过对模拟设备`loader`进行设置，可以在QEMU启动时：
+通过对设备`loader`（对，这其实是一个虚拟的设备）进行设置，可以在QEMU启动时实现以下功能：
 
 1. 将数据加载到内存中
 

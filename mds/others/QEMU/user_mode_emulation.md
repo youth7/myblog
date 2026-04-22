@@ -1,6 +1,6 @@
 ## User Mode Emulation的例子
 
-在X86的Ubuntu20上编译RISCV64的C语言代码，然后通过user mode emulation运行的过程如下：
+在**X86**的Ubuntu20上编译**RISCV64**的C语言代码，然后通过user mode emulation运行的过程如下：
 
 首先需要安装相关GCC工具链：
 
