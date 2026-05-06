@@ -37,7 +37,7 @@ riscv64-unknown-elf/bin/ld: warning: cannot find entry symbol _start; defaulting
 
 也就是说默认的入口点应该是`start`而不是`_start`，那为何`ld`的警告却要求`_start`呢？
 
-后来看到[这里](https://www.gridbugs.org/if-you-use-a-custom-linker-script-_start-is-not-necessarily-the-entry-point/)猜发现，原来`ld`启动时候会有**一个默认的脚本，这个脚本利用上述规则的第2条，将默认的入口名称改为了`_start`**，可以通过以下命令来观察这一点：
+后来看到[这里](https://www.gridbugs.org/if-you-use-a-custom-linker-script-_start-is-not-necessarily-the-entry-point/)发现，原来`ld`启动时候会有**一个默认的脚本，这个脚本利用上述规则的第2条，将默认的入口名称改为了`_start`**，可以通过以下命令来观察这一点，注意第3行的`ENTRY(_start)`，就是它改变了入口函数的名称
 
 ```bash
 $ ld --verbose | grep start
