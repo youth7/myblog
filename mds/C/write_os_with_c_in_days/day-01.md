@@ -45,24 +45,9 @@ riscv64-unknown-elf-objcopy -O binary start.elf start.bin
 
 gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调用方式，不要使用built-in（gcc内部的魔改）版本。
 
-> ```
-> -fno-builtin
-> -fno-builtin-function
-> ```
+> `-fno-builtin` means that gcc **will not try to replace library functions with builtin compiled code**, and you'll not get any weirdness  due to such replacements. 
 >
-> Don’t recognize built-in functions that do not begin with ‘__builtin_’ as prefix.  See [Builtins for C Library Functions](https://gcc.gnu.org/onlinedocs/gcc/Library-Builtins.html), for details of the functions affected, including those which are not built-in functions when -ansi or -std options for strict ISO C conformance are used because they do not have an ISO standard meaning.
->
-> **GCC normally generates special code to handle certain built-in functions more efficiently**; for instance, calls to `alloca` may become single instructions which adjust the stack directly, and calls to `memcpy` may become inline copy loops.  The resulting code is often both smaller and faster, but since the function calls no longer appear as such, **you cannot set a breakpoint on those calls, nor can you change the behavior of the functions by linking with a different library**.  
->
-> In addition, **when a function is recognized as a built-in function**, GCC may use information about that function to warn about problems with calls to that function, or to generate more efficient code, even if the resulting code still contains calls to that function.  For example, warnings are given with -Wformat for bad calls to `printf` when `printf` is built in and `strlen` is known not to modify global memory.（即使用了built-in function之后，能够提供更多的警告信息？）
->
-> With the -fno-builtin-function option only the built-in function is disabled.  function must not begin with ‘__builtin_’.  If a function is named that is not built-in in this version of GCC, this option is ignored.  There is no corresponding -fbuiltin-function option; if you wish to enable built-in functions selectively when using -fno-builtin or -ffreestanding, you may define macros such as:
->
-> ```
-> #define abs(n)          __builtin_abs ((n))
-> #define strcpy(d, s)    __builtin_strcpy ((d), (s))
-> ```
->
+> I've been bitten by replacements of `printf("%s", mystr)` by `puts(mystr)`, for example - even when I wasn't including `stdio.h` at all!
 
 具体的解读可参考[这里](https://stackoverflow.com/questions/54281780/what-exactly-is-fno-builtin-doing-here)
 
@@ -95,7 +80,7 @@ readelf -s  start.elf  | grep start
     13: 00010074     0 NOTYPE  GLOBAL DEFAULT    1 _start
     15: 0001107c     0 NOTYPE  GLOBAL DEFAULT    1 __bss_start
     
-# 加-Ttext=0x80000000参
+# 加-Ttext=0x80000000参数
 readelf -s  start.elf  | grep start
     13: 80000000     0 NOTYPE  GLOBAL DEFAULT    1 _start
     15: 80001008     0 NOTYPE  GLOBAL DEFAULT    1 __bss_start    
@@ -118,23 +103,73 @@ static const MemMapEntry virt_memmap[] = {
 其实这里需要注意两个问题，不要混淆它们：
 
 1. 编译时的内存布局：即编译时，compiler以程序运行时的内存布局来确定各个符号的值。
+2. 加载阶段的内存布局：必须把ELF文件加载到适合的位置，**满足编译时对地址的期望，使得编译时和运行时的地址视图是一致的（重要：⚠️⚠️⚠️⚠️）**。
 
-2. 加载阶段的内存布局：必须把ELF文件加载到适合的位置，满足编译时的地址约束。
+即：
 
-
-
-GCC和Qemu都以0x80000000为起始地址地址，这是因为该地址是 RISC-V 生态的 “约定俗成”—— 硬件厂商、模拟器（如 QEMU）、编译器（如 GCC）都遵循该标准，确保软件能在不同平台上兼容运行。
-
-但奇怪的是，在**[SiFive FE310 芯片数据手册](https://www.starfivetech.com/uploads/fe310-g000-manual-v3p2.pdf)（RISC-V 32 位参考硬件）**中，似乎并没有明确说明这点。**第 4.3 节 Memory Map**中，地址段`0x80000000`~`0x80003FFF`的描述是DTIM（Data Tightly Integrated Memory）。问了下大模型，大致意思是：
-
-> 总结逻辑闭环：
+> **QEMU：** 我把你的程序放到 **0x80000000**，并且从这里开始执行。
 >
-> 1. FE310 硬件中，`0x80000000` 是 DTIM（片上核心内存）的起始地址；
-> 2. FE310 的 Boot ROM 引导程序，默认将用户程序复制到 DTIM（0x80000000）并跳转执行；
-> 3. RISC-V 生态（包括 QEMU）采纳该地址作为 “32 位系统的默认加载 / 执行地址”，确保软件兼容；
-> 4. QEMU 的 `virt` 机器简化了 Boot ROM 流程，直接将 `-kernel` 镜像加载到该标准地址，同时扩展内存大小以适配实际使用场景。
+> **GCC：** 那我编译链接时，**所有地址都必须按 0x80000000 来计算**。
 >
-> 简单说：QEMU 加载到 `0x80000000`，是对 FE310 硬件 “DTIM 地址 + Boot 跳转逻辑” 的**生态级兼容**，而非 1:1 复刻硬件，但核心地址约定完全一致。
+> **结果：** 跳转正确、符号正确、程序能跑。
+
+如果能够实现全程相对跳转，那么理论上可以不需要`-Ttext=0x80000000`，但在实际开发过程中这几乎不可能，因有以下几种情况会把你拖入绝对寻址的状态：
+
+>  **① 访问全局变量**
+>
+> ```asm
+>la a0, msg
+> ```
+> 
+> `la` = 把**绝对地址**加载到寄存器→ 必须知道 msg 存在哪个地址
+>
+> 
+>
+>  **② 调用函数（特别 C 语言）**
+>
+> ```c
+>void func() { ... }
+> func();
+>```
+> 
+>C 函数调用会生成**绝对地址引用**
+> 
+>
+> 
+>**③ 设置栈指针**
+> 
+>```asm
+> li sp, 0x80010000
+> ```
+> 
+> 栈必须放在固定地址
+>
+> 
+>
+> **④ 操作设备地址、中断向量、符号**
+>
+> ```asm
+>auipc + ld 这类组合也经常需要固定地址
+> ```
+>
+> 
+>
+> ⑤ 进入 C 语言
+>
+> **只要你写一句 C 代码，立即需要绝对地址！**C 语言**天生依赖绝对寻址**。
+
+
+
+### 真实硬件的启动流程
+
+在[SiFive FE310 芯片数据手册](https://cdn.sparkfun.com/assets/b/f/a/1/2/FE310-G000.pdf)（RISC-V 32 位参考硬件）**第 4.3 节 Memory Map**中，地址段`0x80000000`~`0x80003FFF`的描述是DTIM（Data Tightly Integrated Memory）。而它的启动流程是这样的：
+
+> 6.2 Reset and Trap Vectors
+>
+> * FE310-G000 fetches the first instruction out of reset from **0x1000**. （这个地址和QEMU是一致的，因为是Mask Rom的代码，地址为0x1000，见下面GDB调试的例子）
+> * The instruction stored there jumps straight to OTP at **0x2_0000**, and will either ：
+>   * enter a trap loop if the OTP is not programmed,
+>   * or start running the OTP code
 
 
 
@@ -166,7 +201,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 
 
 
-[请看这里](./boot-compare.md)，因为**QEMU 直接跳过了 Mask ROM→SPL→U-Boot 的完整流程，将用户程序（`start.elf`）直接加载到 `0x8000_0000`，本质是模拟了 “引导流程全部完成后” 的状态，方便开发者调试**。
+[请看这里](./boot-compare.md)，因为**QEMU 直接跳过了[Mask ROM](./mask-rom.md)→SPL→U-Boot 的完整流程，将用户程序（`start.elf`）直接加载到 `0x8000_0000`，本质是模拟了 “引导流程全部完成后” 的状态，方便开发者调试**。
 
 
 

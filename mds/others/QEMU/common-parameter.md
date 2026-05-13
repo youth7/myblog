@@ -36,7 +36,7 @@
 | `-append` | `-append "console=ttyS0"` | 传递给内核的命令行参数（direct Linux boot 场景，通常与 `-kernel` 配合使用） |
 | `-dtb`    | `-dtb kernel.dtb`         | 传递给内核的 DTB（Device Tree Blob，设备树二进制文件，用于描述硬件拓扑，供内核发现和配置设备）镜像文件 |
 
-**各种启动参数（`-loader` `-bios` `-kernel`）的之间的关系：**
+**各种启动参数（`-loader` `-bios` `-kernel`）的之间的关系（重要⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️⚠️）：**
 
 其实就是代表启动流程中的不同阶段，对于riscv架构：
 
@@ -67,7 +67,3 @@
 | `-monitor`   | `-monitor none` | 重定向或禁用 HMP monitor；例如 `-monitor stdio` 将 monitor 放到当前终端，`-monitor none` 禁用默认 monitor |
 | `-s`         | -               | 启用 gdbstub（QEMU 内置的 GDB 远程调试服务端，等价于 `-gdb tcp::1234`） |
 | `-S`         | -               | 启动时冻结 CPU，等待 gdb/monitor 继续执行                    |
-
-
-
-## 
