@@ -1,2 +1,2 @@
-![](/imgs/prototype.png)
+![](../../imgs/prototype.png)
 

@@ -1,79 +1,132 @@
-# 一、RISC-V 典型完整引导流程
-
-RISC-V 嵌入式系统的引导是**多阶段接力**模式，Mask ROM 作为 “第一棒”，仅负责启动的初始环节，后续依赖多级引导程序逐步加载复杂功能，最终启动内核。以下是基于真实嵌入式 RISC-V 芯片（如 SiFive FE310、全志 D1）的通用流程，按执行顺序拆解：
-
-## 1. **阶段 1：[Mask ROM](./mask-rom.md) 引导（上电第一执行，固化于芯片）**
-
-   - **存储位置**：芯片内置的 Mask ROM（例如你提到的 `0x0000_1000~0x0000_1FFF`，4KB 空间）。
-   - **核心代码**：出厂固化的**最小化 ROM Bootloader**，代码量极小。
-   - 核心操作：
-     1. 芯片上电复位后，CPU 的程序计数器（PC）被硬件强制指向 Mask ROM 起始地址，执行第一条指令。
-     2. 仅初始化**最核心的硬件**：如 CPU 核心、片上总线、基础时钟，不初始化复杂外设（如网卡、显示屏）。
-     3. 检查外部存储介质（如 SPI Flash、SD 卡）是否存在合法的二级引导程序（通常是 SPL）。
-     4. 将外部存储中的二级引导程序加载到片上 SRAM（如 DTIM，地址 `0x8000_0000` 附近），随后 PC 跳转到 SRAM 中二级引导程序的入口地址。
-   - **特点**：只读不可修改，功能极简，仅解决 “如何启动下一级程序” 的问题。
 
 
 
-> 关于Mask Rom的介绍可以参考[这里](./mask-rom.md)：
 
 
 
-## 2. **阶段 2：SPL 引导（第二阶段，存储于外部 Flash）**
-
-   - **SPL** 全称 Secondary Program Loader（二级程序加载器），是 U-Boot 引导程序的精简版。
-
-   - **存储位置**：外部可读写存储（如 SPI Flash 的固定分区）。
-
-   - 核心操作：
-
-     1. 初始化扩展硬件：如 DDR 内存控制器、SPI Flash 控制器，此时系统可使用更大容量的 DDR 内存。
-     2. 从外部存储（如 Flash 的另一个分区）加载完整版 U-Boot 到 DDR 内存中。
-     3. 跳转执行 DDR 中的完整版 U-Boot。
-     
-   - **核心作用**：弥补 Mask ROM 容量小、功能弱的缺陷，为加载完整版引导程序铺路。
 
 
 
-## 3. **阶段 3：完整版 U-Boot 引导（第三阶段，运行于 DDR 内存）**
 
-   - **U-Boot** 是嵌入式领域通用的开源引导程序，功能全面，相当于 RISC-V 系统的 “功能强化版 BIOS”。
+# 关于通用的启动流程和RISV的启动流程
 
-   - **运行位置**：大容量 DDR 内存（如 `0x8000_0000` 开始的 DRAM）。
+Before any operating system can start, a boot flow with numerous boot stages must commit a setof system requirements. Any embedded system will always have a multistage boot flow , with each stage devoted to a specific set of tasks. 
 
-   - 核心操作：
+A typical boot sequence is represented in Figure 2.7, where the first stage is referred to as the:
 
-     1. 初始化全量外设：如串口、网口、SD 卡、显示屏等，用户可通过串口输入命令交互。
-     2. 读取引导配置（如环境变量），确定内核镜像的存储位置（如 Flash 或网络服务器）。
-     3. 将内核镜像（如 Linux 内核的 `Image` 文件）和设备树（DTB，描述硬件信息）加载到 DDR 内存的指定地址。
-     4. 完成准备工作后，跳转到内核镜像的入口地址，移交系统控制权。
+ **(i) Zero-Stage Boot Loader (ZSBL) or the ROM** since it operates on the ROM. It initializes clocks, manages system power, and resets the system. After the voltages have steadied and the hardware is ready to begin booting, the processor initializes the hardware buses and peripherals. 
 
-## 4. **阶段 4：内核与根文件系统启动（最终阶段）**
+It is the initial code run by the CPU, and it embeds all of the logic required for the following boot stage through external peripherals such as an embedded Multi-Media Card (eMMC), microSD card, or even via specialized protocols on a bus for data transfer (like USB, UART, and others). 
 
-   - **内核启动**：内核接管后，初始化操作系统核心功能（进程管理、内存管理、文件系统等）。
-   - **根文件系统挂载**：内核加载并挂载根文件系统（存储应用程序、配置文件等）。
-   - **用户态启动**：最终启动用户态程序和服务，系统进入可使用状态。
+Nextly has presented the **(ii) LOADER, commonly known as the First-Stage Boot Loader (FSBL)**. It initializes the DDRs and loads the subsequent stages, including the RUNTIME stage. Though the FSBL does not need regular updates, any change may result in unexpected behavior and could jeopardize the board. 
 
+The **(iii) RUNTIME stage** executes all safe boot flow components on top of the on-chip Static Random Access Memory (SRAM), and it is assumed to be the second stage boot loader. Software layers such as U-Boot , and OpenSBI may commit to this, as well as being responsible to provides runtime  services to the OSs following system boot.
 
+>  Runtime services: It translates as runtime services to all the communication services that lower privilege layers do to higher privilege layers. Typically, they are carried out in S-mode using the previously stated ECall instructions through an SBI layer.
 
-# 三、关键总结
+The penultimate boot stage contains the **(iv) BOOTLOADER,** which loads kernel images from media like SD cards or networks. Grub  is an example of a software bootloader capable of loading Linux kernel images from Multi-Media Card (MMC) devices. 
 
-1. **Mask ROM ≠ BIOS**：Mask ROM 仅存储极简引导代码，是 RISC-V 启动的 “起点”；而 x86 的 BIOS 是功能完整的引导 + 硬件管理固件。RISC-V 中真正承担类似 BIOS 功能的是 **U-Boot**。
-2. **多阶段引导的原因**：核心是受限于 Mask ROM 的 “只读、小容量” 特性 —— 无法存储复杂代码，只能通过 “接力” 方式逐步加载功能更强的引导程序，最终满足内核启动的需求。
-3. **QEMU 模拟的简化逻辑**：你之前用 `qemu-system-riscv32` 加 `-bios none` 时，QEMU 直接跳过了 Mask ROM→SPL→U-Boot 的完整流程，将用户程序（`start.elf`）直接加载到 `0x8000_0000`，本质是模拟了 “引导流程全部完成后” 的状态，方便开发者调试。
+**The last step introduces the (v) OS**, which typically operates in S-mode and handles all non-privileged applications. Regarding all boot stages, this dissertation will focus on the RUNTIME boot stage, where OpenSBI operates in M-mode and provide services to lower privilege levels, as seen in Figure 2.7, where it supports both U-Boot and Linux OS running in S-mode.
 
 
 
-# 附录：X86中的BIOS VS BOOTLOADER
 
-需要注意，BIOS似乎只是X86才有的概念，在RISCV中没有这个东西。
 
-| **维度**     | **BIOS**                                                     | **BOOTLOADER**                                               |
-| ------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| **本质**     | 固化在主板芯片中的**硬件固件**（属于硬件层面）               | 存储在启动设备（如硬盘）中的**软件程序**（属于软件层面）     |
-| **核心功能** | 1. 硬件初始化（如内存、显卡、硬盘检测）<br /> 2. 检测启动设备（按启动顺序查找） <br/>3. 找到并移交控制权给 BOOTLOADER | 1. 从启动设备中定位操作系统内核<br/> 2. 加载内核到内存并启动<br/> 3. （部分高级功能）提供启动菜单（如双系统选择） |
-| **存储位置** | 主板上的 ROM/EEPROM 芯片（断电不丢失）                       | 启动设备的第一个扇区（如硬盘的 MBR）                         |
-| **运行阶段** | 计算机通电后第一个运行的程序（启动最早期）                   | BIOS 完成硬件检测后运行（启动中期）                          |
-| **依赖关系** | 不依赖 BOOTLOADER，但需要找到 BOOTLOADER 才能继续启动        | 完全依赖 BIOS 启动（由 BIOS 加载并执行）                     |
 
-BIOS是**硬件厂商（注意）**固化在ROM中的一段代码，它只熟悉主板，对BOOTLOADER一无所知，只是双方协议好BOOTLOADER的位置，以便BIOS自检结束后能够将控制权转交给BOOTLOADER。
+
+![](../../../imgs/riscv-boot-flow.png)
+
+
+
+![](../../../imgs/riscv-boot-flow2.png)
+
+
+
+
+
+| 通用       | 功能/备注                                                    | 是否可以使用DRAM                   | riscv   | 功能/备注 |
+| ---------- | ------------------------------------------------------------ | ---------------------------------- | ------- | --------- |
+| ROM        | 具体见[mask-rom.md](./mask-rom.md)，**ROM将loader加载到SRAM并转移控制权** | 此时仅可以使用SRAM，DRAM尚未初始化 | ZSBL    |           |
+| loader     |                                                              | 前期用 SRAM，后期启用 DRAM         | FSBL    |           |
+| runtime    |                                                              | 可以                               | openSBI |           |
+| bootloader |                                                              | 可以                               | U-Boot  |           |
+| OS         |                                                              | 可以                               | Linux   |           |
+
+
+
+> **SRAM**：芯片内置小高速内存，**DDR 没起来之前全程靠它**（Mask ROM、SPL 初期）
+>
+> **DRAM（就是常说的系统内存 RAM/DDR）**：大容量外接内存，**SPL 初始化 DDR 后，U-Boot 和 Linux 全跑在这里**
+
+
+
+## 参考
+
+* [HSP-V: Holistic Static Partitioning on RISC-V Platforms](https://www.researchgate.net/publication/362293125_HSP-V_Holistic_Static_Partitioning_on_RISC-V_Platforms)
+* [RISC-V bootflow: What’s next ?](https://archive.fosdem.org/2020/schedule/event/riscv_bootflow/attachments/slides/4205/export/events/attachments/riscv_bootflow/slides/4205/FOSDEM_2020_Atish.pdf)
+
+
+
+
+
+
+
+# Mask ROM / OTP / Flash / SRAM / DDR 六者极简对照表
+
+| 器件         | 本质类型              | 可否擦写                    | 位置                           | 容量           | 核心作用                                         | 启动阶段用到时机                                             |
+| ------------ | --------------------- | --------------------------- | ------------------------------ | -------------- | ------------------------------------------------ | ------------------------------------------------------------ |
+| **Mask ROM** | 只读固化 ROM          | ❌ 出厂永久不可改            | 芯片**片内**                   | 很小 KB 级     | 上电第一条指令、固化第一级启动代码               | **上电最先执行**，整个启动链起点                             |
+| **OTP**      | 一次性可编程存储      | ⚠️ 只能**写 1 次**，之后只读 | 芯片**片内**                   | 小             | 存芯片唯一 ID、密钥、安全配置、启动参数          | Mask ROM 启动**立刻读取**配置，不运行代码                    |
+| **Flash**    | 非易失性存储          | ✅ 可反复擦写                | 大多**片外**（也有片内 Flash） | 大 MB/GB 级    | 存放 SPL、U-Boot、设备树、Linux 内核、文件系统   | Mask ROM/SPL 从中**加载程序**到内存                          |
+| **SRAM**     | 静态 RAM（内存）      | ✅ 可读写💡断电丢失           | 芯片**片内集成**               | 小 KB~ 几百 KB | 极速临时内存、栈、缓存、DDR 未就绪前唯一可用内存 | Mask ROM、SPL**前期全程依赖**；DDR 初始化前专用              |
+| **DDR**      | DRAM 动态 RAM（内存） | ✅ 可读写💡断电丢失           | 芯片**外接**颗粒               | 超大 GB 级     | 系统主内存、运行 U-Boot/OpenSBI/Linux 内核       | SPL**初始化 DDR 之后**，所有后续程序全跑在这里，起始地址默认 **0x80000000** |
+
+关键：
+
+1. 确定这个存储是持久性还是非持久性的（打个比方：是运行时的【动态内存】还是【静态硬盘】）
+2. 确定这个存储是被谁使用的
+
+例如：
+
+* ROM代码使用的持久性存储是OTP，它相当于【静态硬盘】，存储了一些安全相关的文件
+* ROM代码使用的非持久性存储是SRAM，它属于【动态内存】
+* ROM代码从OTP中加载资料，然后再SRAM中执行代码的各种运算
+
+
+
+
+
+
+
+# 各阶段功能解读
+
+## ROM
+
+此时DRAM尚未初始化，因此使用的是ROM自带的存储DI（地址例如：0x1000、0x20000000），而0x80000000这个是DRAM的地址，只有内存初始化之后才能使用
+
+
+
+**关于OTP**
+
+- 标准开源流程（非安全、公开文档）：
+
+  Mask ROM → FSBL/SPL → OpenSBI → U‑Boot → Kernel
+
+- 芯片厂商硬件手册里的流程（带安全启动）：
+
+  Mask ROM → FSBL/SPL → OpenSBI → U‑Boot → Kernel
+
+  ​            ┃
+
+  ​			┗ OTP/eFuse
+
+**OTP 不是一个独立 “阶段程序”，而是 Mask ROM 运行时会去读取的一片一次性可编程存储，用来存密钥、启动模式、安全配置等，属于硬件信任根的一部分，所以标准开源文档不强调，但硬件手册会写。**
+
+## loader
+
+## runtime
+
+## bootloader
+
+
+
