@@ -58,6 +58,8 @@ gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调�
 ### `-Ttext`
 
 > ```
+> -Tbss=org
+> -Tdata=org
 > -Ttext=org
 > ```
 >
@@ -65,29 +67,43 @@ gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调�
 >
 > 
 >
->  ```
+> ```
 > --section-start=sectionname=org
->  ```
+> ```
 >
->  Locate a section in the output file at the absolute address given by `org`.  You may use this option as many times as necessary to locate multiple sections in the command line. `org` must be a single hexadecimal integer; for compatibility with other linkers, you may omit the leading ‘0x’ usually associated with hexadecimal values.  *Note:* there should be no white space between `sectionname`, the equals sign (“=”), and `org`.
->
+> Locate a section in the output file at the absolute address given by `org`.  You may use this option as many times as necessary to locate multiple sections in the command line. `org` must be a single hexadecimal integer; for compatibility with other linkers, you may omit the leading ‘0x’ usually associated with hexadecimal values.  *Note:* there should be no white space between `sectionname`, the equals sign (“=”), and `org`.
 
-`-Ttext=0x80000000`非常重要，如果缺少这个选项，编译器会为`_start`函数生成另外一个地址值：
+即`ld`中有以下三种选项，他们的命名方式遵循-Txxxx这样的格式，例如：
+
+* `-Ttext=org`，等价于`--section-start .text=org`
+
+* `-Tdata=org`，等价于`--section-start .data=org`
+
+* `-Tbss= org`，等价于`--section-start .bss=org`
+
+
+
+`-Ttext=0x80000000`非常重要，如果缺少这个选项，编译器会为`.text`节生成另外一个地址00010074
 
 ```bash
 # 不加-Ttext=0x80000000参数
-readelf -s  start.elf  | grep start
-    13: 00010074     0 NOTYPE  GLOBAL DEFAULT    1 _start
-    15: 0001107c     0 NOTYPE  GLOBAL DEFAULT    1 __bss_start
+
+Section Headers:
+  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
+  [ 0]                   NULL            00000000 000000 000000 00      0   0  0
+  [ 1] .text             PROGBITS        00010074 000074 000008 00  AX  0   0  4
+  ......
+
     
 # 加-Ttext=0x80000000参数
-readelf -s  start.elf  | grep start
-    13: 80000000     0 NOTYPE  GLOBAL DEFAULT    1 _start
-    15: 80001008     0 NOTYPE  GLOBAL DEFAULT    1 __bss_start    
-    
+Section Headers:
+  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
+  [ 0]                   NULL            00000000 000000 000000 00      0   0  0
+  [ 1] .text             PROGBITS        80000000 001000 000008 00  AX  0   0  4
+  ......
 ```
 
-如果在这个地址上设置断点，则QEMU会报错：`Cannot access memory at address 0x10074`。从QEMU的[源文件](https://github.com/qemu/qemu/blob/master/hw/riscv/virt.c)来看：
+从QEMU的[源文件](https://github.com/qemu/qemu/blob/master/hw/riscv/virt.c)来看：
 
 ```c
 static const MemMapEntry virt_memmap[] = {
@@ -100,16 +116,43 @@ static const MemMapEntry virt_memmap[] = {
 
 地址`0x00010074`属于`VIRT_TEST`，这个区域的内存应该是不能被直接访问的。
 
+
+
+其实**无论是否添加`-Ttext=0x80000000`选项，QEMU都会把start.elf的`.text`加载到地址`0x80000000中`**（可以编译不同版本的start.elf，然后在`0x80000000`打断点来确认）。唯一不同的是，如果不加`-Ttext=0x80000000`，则`_start`的地址会变成`0x00010074`，此时会触发两个错误：
+
+1. 该地址在QEMU中是不可访问的。
+2. 想要实现无限循环，`_start`必须等于入口地址`0x80000000`，而`0x00010074`明显不符合。
+
+```bash
+Breakpoint 2, 0x80000000 in ?? ()
+(gdb) l
+1       .global _start
+2       _start:
+3               addi a0, a0, 1
+4               j _start
+5
+(gdb) p _start
+Cannot access memory at address 0x10074
+(gdb) p &_start
+$3 = (<text variable, no debug info> *) 0x10074 <_start>
+```
+
+> 注意gdb的`p`命令是打印变量的值，如果需要打印变量的地址需要使用`&_start`
+
+
+
+
+
 其实这里需要注意两个问题，不要混淆它们：
 
 1. 编译时的内存布局：即编译时，compiler以程序运行时的内存布局来确定各个符号的值。
-2. 加载阶段的内存布局：必须把ELF文件加载到适合的位置，**满足编译时对地址的期望，使得编译时和运行时的地址视图是一致的（重要：⚠️⚠️⚠️⚠️）**。
+2. 运行阶段的内存布局：必须把ELF文件加载到适合的位置，**满足编译时对地址的期望，使得编译时和运行时的地址视图是一致的（重要：⚠️⚠️⚠️⚠️）**。
 
 即：
 
-> **QEMU：** 我把你的程序放到 **0x80000000**，并且从这里开始执行。
+> **QEMU：** 我把你的程序放到 **`0x80000000`**，并且从这里开始执行。
 >
-> **GCC：** 那我编译链接时，**所有地址都必须按 0x80000000 来计算**。
+> **GCC：** 那我编译链接时，**所有地址都必须按 `0x80000000` 来计算**。
 >
 > **结果：** 跳转正确、符号正确、程序能跑。
 
@@ -117,7 +160,7 @@ static const MemMapEntry virt_memmap[] = {
 
 
 
-### 真实硬件的启动流程
+### 真实硬件的启动流程参考
 
 在[SiFive FE310 芯片数据手册](https://cdn.sparkfun.com/assets/b/f/a/1/2/FE310-G000.pdf)（RISC-V 32 位参考硬件）**第 4.3 节 Memory Map**中，地址段`0x80000000`~`0x80003FFF`的描述是DTIM（Data Tightly Integrated Memory）。而它的启动流程是这样的：
 
@@ -128,7 +171,7 @@ static const MemMapEntry virt_memmap[] = {
 >   * enter a trap loop if the OTP is not programmed,
 >   * or start running the OTP code
 
-即对于RISCV的标准启动流程：Mask ROM→SPL→U-Boot，硬件只实现了Mask ROM阶段（地址是0x1000），SPL→U-Boot阶段（地址0x80000000）不靠硬件实现，所以在技术手册中没被提及。
+即对于RISCV的标准启动流程：硬件只实现了Mask ROM阶段（地址是0x1000），SPL→U-Boot阶段（地址0x80000000）不靠硬件实现，所以在技术手册中没被提及。
 
 
 
@@ -158,7 +201,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 
 
 
-[请看这里](./boot-compare.md)，因为**QEMU 直接跳过了[Mask ROM](./mask-rom.md)→SPL→U-Boot 的完整流程，将用户程序（`start.elf`）直接加载到 `0x8000_0000`，本质是模拟了 “引导流程全部完成后” 的状态，方便开发者调试**。
+[请看这里](./boot-compare.md)，可知0x1000就是ROM地址，而0x8000000则是DRAM地址，这和RISCV通用启动流程是一致的。
 
 
 
