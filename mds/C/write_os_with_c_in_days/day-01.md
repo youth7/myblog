@@ -201,7 +201,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 
 
 
-[请看这里](./boot-compare.md)，可知0x1000就是ROM地址，而0x8000000则是DRAM地址，这和RISCV通用启动流程是一致的。
+[请看这里](./boot-compare.md)，可知`0x1000`就是ROM地址，而`0x8000000`则是DRAM地址，这和RISCV通用启动流程是一致的。
 
 
 

@@ -56,9 +56,9 @@ ENTRY(_start)
 
 
 
-# 关于ld选项的传递问题
+# 关于`ld`选项的传递问题
 
-GCC中和`ld`相关的选项参考[这里](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)。注意，**这些都是GCC的选项**，GCC将这些选项传递给ld，来控制调用`ld`时的一些行为。
+GCC中和`ld`相关的选项参考[这里](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)。注意，**这些都是GCC的选项**，GCC将这些选项传递给`ld`，来控制调用`ld`时的一些行为。
 
 > ```
 > -Wl,option
@@ -74,13 +74,11 @@ GCC中和`ld`相关的选项参考[这里](https://gcc.gnu.org/onlinedocs/gcc/Li
 
 而`ld`自身的选项参考[这里](https://sourceware.org/binutils/docs/ld/Options.html)。关于`ld`选项有一点需要说明：
 
-首先是前缀：
+首先是前缀`-Wl`：
 
 >  if the linker is being invoked indirectly, via a compiler driver (e.g. ‘gcc’) then all the linker command-line options should be prefixed by ‘-Wl,’ (or whatever is appropriate for the particular compiler driver) like this:
 >
 >  ` gcc -Wl,--start-group foo.o bar.o -Wl,--end-group`
-
-
 
 
 
@@ -94,51 +92,22 @@ riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall
 riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall -Wl,-Ttext=0x80000000 -v loop.s
 ```
 
-如果按照`ld`的说法，必然是要加`-Wl`。但实际却不用，那么结论就是gcc把`-Ttext`做成了自己的选项，但是又没有在文档中写出来。
+如果按照`ld`的说法，必然是要加`-Wl`。但实际却不用，这是因为[文档的末尾](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)写到：
 
 
 
-把上述两条命令都加上`-v`，那么在输出的参数中可以发现：
-
-* 对于第1条命令：选项`-Ttext=0x80000000`出现在各个`COLLECT_GCC_OPTIONS`中和调用`collect2`时
-* 对于第2条命令：选项`-Ttext=0x80000000`不在`COLLECT_GCC_OPTIONS`中，只是在调用`collect2`时候才出现1次
-
-这证明我们的猜想应该是正确的。
-
-
-
-```bash
-riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall -Ttext=0x80000000 -v loop.s  
-Using built-in specs.
-...
-
-COLLECT_GCC_OPTIONS='-nostdlib' '-fno-builtin' '-march=rv32g' '-mabi=ilp32' '-g' '-Wall' '-Ttext=0x80000000' '-v' '-mtune=rocket' '-misa-spec=2.2' '-march=rv32imafd' '-dumpdir' 'a-'
-...
-
-COLLECT_GCC_OPTIONS='-nostdlib' '-fno-builtin' '-march=rv32g' '-mabi=ilp32' '-g' '-Wall' '-Ttext=0x80000000' '-v' '-mtune=rocket' '-misa-spec=2.2' '-march=rv32imafd' '-dumpdir' 'a.'
-...
- /home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../libexec/gcc/riscv64-unknown-elf/12.1.0/collect2 -plugin /home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../libexec/gcc/riscv64-unknown-elf/12.1.0/liblto_plugin.so -plugin-opt=/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../libexec/gcc/riscv64-unknown-elf/12.1.0/lto-wrapper -plugin-opt=-fresolution=/tmp/cckI458q.res --sysroot=/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../riscv64-unknown-elf -melf32lriscv -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../lib/gcc/riscv64-unknown-elf/12.1.0 -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../lib/gcc -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../lib/gcc/riscv64-unknown-elf/12.1.0/../../../../riscv64-unknown-elf/lib -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../riscv64-unknown-elf/lib /tmp/ccgfE1jp.o -Ttext=0x80000000
-
-COLLECT_GCC_OPTIONS='-nostdlib' '-fno-builtin' '-march=rv32g' '-mabi=ilp32' '-g' '-Wall' '-Ttext=0x80000000' '-v' '-mtune=rocket' '-misa-spec=2.2' '-march=rv32imafd' '-dumpdir' 'a.'
-```
-
-
-
-
-
-
-
-```bash
-riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall -Wl,-Ttext=0x80000000 -v loop.s  
-Using built-in specs.
-...
- /home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../libexec/gcc/riscv64-unknown-elf/12.1.0/collect2 -plugin /home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../libexec/gcc/riscv64-unknown-elf/12.1.0/liblto_plugin.so -plugin-opt=/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../libexec/gcc/riscv64-unknown-elf/12.1.0/lto-wrapper -plugin-opt=-fresolution=/tmp/ccOH8BGI.res --sysroot=/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../riscv64-unknown-elf -melf32lriscv -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../lib/gcc/riscv64-unknown-elf/12.1.0 -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../lib/gcc -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../lib/gcc/riscv64-unknown-elf/12.1.0/../../../../riscv64-unknown-elf/lib -L/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../riscv64-unknown-elf/lib -Ttext=0x80000000 /tmp/ccGbaIxM.o
-COLLECT_GCC_OPTIONS='-nostdlib' '-fno-builtin' '-march=rv32g' '-mabi=ilp32' '-g' '-Wall' '-v' '-mtune=rocket' '-misa-spec=2.2' '-march=rv32imafd' '-dumpdir' 'a.'
-```
-
-
-
-
+> ```
+> -Tbss=addr
+> -Tdata=addr
+> -Ttext=addr
+> -N
+> -n
+> -t
+> -Z
+> -z keyword
+> ```
+>
+> These options are passed through to the linker without interpretation by GCC. Refer to your linker documentation for the meanings of these options.
 
 
 
