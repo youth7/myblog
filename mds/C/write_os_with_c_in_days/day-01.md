@@ -118,7 +118,7 @@ static const MemMapEntry virt_memmap[] = {
 
 
 
-其实**无论是否添加`-Ttext=0x80000000`选项，QEMU都会把start.elf的`.text`加载到地址`0x80000000中`**（可以编译不同版本的start.elf，然后在`0x80000000`打断点来确认）。唯一不同的是，如果不加`-Ttext=0x80000000`，则`_start`的地址会变成`0x00010074`，此时会触发两个错误：
+其实**无论是否添加`-Ttext=0x80000000`选项，QEMU都会把start.elf的`.text`加载到地址`0x80000000中`**（可以编译不同版本的start.elf，然后在`0x80000000`打断点来确认）。唯一不同的是，如果不加`-Ttext=0x80000000`，则`_start`的地址会变成`0x00010074`（`.text`节的首地址），此时会触发两个错误：
 
 1. 该地址在QEMU中是不可访问的。
 2. 想要实现无限循环，`_start`必须等于入口地址`0x80000000`，而`0x00010074`明显不符合。
@@ -141,9 +141,7 @@ $3 = (<text variable, no debug info> *) 0x10074 <_start>
 
 
 
-
-
-其实这里需要注意两个问题，不要混淆它们：
+这里需要注意两个问题，不要混淆它们：
 
 1. 编译时的内存布局：即编译时，compiler以程序运行时的内存布局来确定各个符号的值。
 2. 运行阶段的内存布局：必须把ELF文件加载到适合的位置，**满足编译时对地址的期望，使得编译时和运行时的地址视图是一致的（重要：⚠️⚠️⚠️⚠️）**。
@@ -156,7 +154,7 @@ $3 = (<text variable, no debug info> *) 0x10074 <_start>
 >
 > **结果：** 跳转正确、符号正确、程序能跑。
 
-如果能够实现全程相对跳转，那么理论上可以不需要`-Ttext=0x80000000`，但在实际开发过程中这几乎不可能。
+其实如果能够实现全程相对跳转，那么理论上可以不需要`-Ttext=0x80000000`，但在实际开发过程中这几乎不可能。
 
 
 
@@ -171,7 +169,7 @@ $3 = (<text variable, no debug info> *) 0x10074 <_start>
 >   * enter a trap loop if the OTP is not programmed,
 >   * or start running the OTP code
 
-即对于RISCV的标准启动流程：硬件只实现了Mask ROM阶段（地址是0x1000），SPL→U-Boot阶段（地址0x80000000）不靠硬件实现，所以在技术手册中没被提及。
+即对于RISCV的标准启动流程：硬件只实现了Mask ROM阶段（地址是`0x1000`），SPL→U-Boot阶段（地址`0x80000000`）不靠硬件实现，所以在技术手册中没被提及。
 
 
 
@@ -201,11 +199,11 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 
 
 
-[请看这里](./boot-compare.md)，可知`0x1000`就是ROM地址，而`0x8000000`则是DRAM地址，这和RISCV通用启动流程是一致的。
+> [从这里](./boot-compare.md)可知`0x1000`就是ROM地址，而`0x8000000`则是DRAM地址，这和RISCV通用启动流程是一致的。
 
 
 
-下面我们来验证这点，在运行上一节的命令之后，QEMU停下来并等待连接调试。我们连接上GDB server，然后观察地址（**Mask Rom的代码，地址为0x1000**）和相关代码：
+下面我们来验证上述的地址，在运行上一节的命令之后，QEMU停下来并等待连接调试。我们通过以下命令连接GDB server，然后观察地址和相关代码：
 
 ```bash
 riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x1000, +30'  start.elf
@@ -234,7 +232,7 @@ Dump of assembler code from 0x1000 to 0x101e:
 End of assembler dump.
 ```
 
-这就是第一阶段的启动代码，可以看到最后通过指令`jr t0`进行跳转。对这条指令进行断点，然后看一下寄存器`t0`的值：
+这就是第一阶段的启动代码，可见第一条代码的地址就是`0x1000`，可以看到最后通过指令`jr t0`进行跳转。对这条指令进行断点，然后看一下寄存器`t0`的值：
 
 ```bash
 (gdb) b *0x00001014

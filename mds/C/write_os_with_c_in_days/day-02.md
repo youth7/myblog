@@ -34,7 +34,6 @@ _start:
 	la sp, stack_top
 	j start_kernel
 
-# 不加这句对齐的话，stack_bottom不会对齐，而stack_top为了对齐，会强行增加栈的大小，最终使得栈不等于1024，要注意
 .balign 16
 stack_bottom:
 	# 开辟一段空间作为栈
@@ -83,15 +82,25 @@ Section Headers:
      5: 00000418     0 NOTYPE  LOCAL  DEFAULT    1 stack_top
 ... 
      8: 00000018     0 NOTYPE  LOCAL  DEFAULT    1 stack_bottom
+     
+     
 ```
 
-`.data`和`.bss`都是为0，说明栈并没有被实际分配空间，它需要运行时才会被真正分配空间。
+`.data`和`.bss`都是为0，说明栈并没有被实际分配空间，它需要运行时才会被真正分配空间，而`stack_bottom`和`stack_top`的差是0x400=1024，符合预期。
 
 
 
-而`stack_bottom`和`stack_top`的差是0x400=1024，符合预期。注意必须在代码里加上`.balign 16`，否则GCC为了对齐可能会往栈中填充数据，使得`stack_top`变大，这会导致栈的真实大小不是我们指定的1024。
+注意，虽然这里加上了`.balign 16`，但在编译阶段`stack_bottom`并非16字节对齐。只有在最终链接好的`os.elf`中`stack_bottom`的才是对齐的（值为`0x80000010`），这是Linker Relaxation Shrinks的原因，即：
 
+* `start.o` 里：0x18（未松弛，地址不是按照16对齐）
 
+* `os.elf` 里：0x10（已松弛优化，地址按照16对齐）
+
+```bash
+readelf -s os.elf  | grep stack
+13: 80000410     0 NOTYPE  LOCAL  DEFAULT    1 stack_top
+14: 80000010     0 NOTYPE  LOCAL  DEFAULT    1 stack_bottom
+```
 
 
 
@@ -152,7 +161,7 @@ $3 = (void *) 0x80000410 <stack_top>
 
 
 
-* 继续执行，程序会跳转到`start_kernel`，反汇编的话会观察到之前设置的特殊数值0x709394，一切正常符合预期，从这一刻起可以使用C语言来编写后续的逻辑了。
+* 继续执行，程序会跳转到`start_kernel`，反汇编的话会观察到之前设置的特殊数值`0x709394`，一切正常符合预期，从这一刻起可以使用C语言来编写后续的逻辑了。
 
 ```bash
 (gdb) c

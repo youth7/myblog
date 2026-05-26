@@ -92,7 +92,7 @@ riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall
 riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall -Wl,-Ttext=0x80000000 -v loop.s
 ```
 
-如果按照`ld`的说法，必然是要加`-Wl`。但实际却不用，这是因为[文档的末尾](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)写到：
+如果按照`ld`的说法必然是要加`-Wl`。但实际却不用，这是因为[文档的末尾](https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html)写到：
 
 
 
@@ -111,5 +111,5 @@ riscv64-unknown-elf-gcc -nostdlib -fno-builtin -march=rv32g -mabi=ilp32 -g -Wall
 
 
 
-
+即有一部分选项是无需GCC解释就直接传给`ld`。
 
