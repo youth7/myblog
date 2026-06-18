@@ -6,8 +6,8 @@ settings:
 
 dependencies:
   markdown-it:
-    specifier: ^14.1.0
-    version: 14.1.0
+    specifier: ^14.1.1
+    version: 14.1.1
   markdown-it-highlightjs:
     specifier: ^3.6.0
     version: 3.6.0
@@ -55,8 +55,8 @@ packages:
     resolution: {integrity: sha512-Fafv7TnMENccWYTNjMZzV4BzONPxpK9Mknr1iMEK6m7PI5a5UTCOFctPzx7Nhv81fFzYEY8WHDkSu9n43fTV9g==}
     dev: false
 
-  /markdown-it@14.1.0:
-    resolution: {integrity: sha512-a54IwgWPaeBCAAsv13YgmALOF1elABB08FxO9i+r4VFk5Vl4pKokRPeX8u5TCgSsPi6ec1otfLjdOpVcgbpshg==}
+  /markdown-it@14.1.1:
+    resolution: {integrity: sha512-BuU2qnTti9YKgK5N+IeMubp14ZUKUUw7yeJbkjtosvHiP0AZ5c8IAgEMk79D0eC8F23r4Ac/q8cAIFdm2FtyoA==}
     hasBin: true
     dependencies:
       argparse: 2.0.1
