@@ -10,7 +10,7 @@
 
 # 关于通用的启动流程和RISV的启动流程
 
-Before any operating system can start, a boot flow with numerous boot stages must commit a setof system requirements. Any embedded system will always have a multistage boot flow , with each stage devoted to a specific set of tasks. 
+Before any operating system can start, a boot flow with numerous boot stages must commit a set of system requirements. Any embedded system will always have a multistage boot flow , with each stage devoted to a specific set of tasks. 
 
 A typical boot sequence is represented in Figure 2.7, where the first stage is referred to as the:
 
@@ -46,7 +46,7 @@ The penultimate boot stage contains the **(iv) BOOTLOADER,** which **loads kerne
 
 | 通用       | 功能/备注                                                    | 是否可以使用DRAM                   | riscv   | 功能/备注 |
 | ---------- | ------------------------------------------------------------ | ---------------------------------- | ------- | --------- |
-| ROM        | 初始化硬件信息例如时钟频率，电压等，具体见[mask-rom.md](./mask-rom.md) | 此时仅可以使用SRAM，DRAM尚未初始化 | ZSBL    |           |
+| ROM        | 初始化硬件信息例如时钟频率，电压等，具体见[这里](./mask-rom.md) | 此时仅可以使用SRAM，DRAM尚未初始化 | ZSBL    |           |
 | loader     | 初始化内存                                                   | 前期用 SRAM，后期启用 DRAM         | FSBL    |           |
 | runtime    | 在SRAM上执行，提供一个抽象层                                 | 可以                               | openSBI |           |
 | bootloader |                                                              | 可以                               | U-Boot  |           |
@@ -79,36 +79,19 @@ The penultimate boot stage contains the **(iv) BOOTLOADER,** which **loads kerne
 
 
 
-# Mask ROM / Flash / SRAM / DDR 六者极简对照表
+# Mask ROM / Flash / SRAM / DDR 对照
 
-| 器件         | 本质类型              | 可否擦写          | 位置                           | 容量           | 核心作用                                         | 启动阶段用到时机                                             |
-| ------------ | --------------------- | ----------------- | ------------------------------ | -------------- | ------------------------------------------------ | ------------------------------------------------------------ |
-| **Mask ROM** | 只读固化 ROM          | ❌ 出厂永久不可改  | 芯片**片内**                   | 很小 KB 级     | 上电第一条指令、固化第一级启动代码               | **上电最先执行**，整个启动链起点                             |
-| **Flash**    | 非易失性存储          | ✅ 可反复擦写      | 大多**片外**（也有片内 Flash） | 大 MB/GB 级    | 存放 SPL、U-Boot、设备树、Linux 内核、文件系统   | Mask ROM/SPL 从中**加载程序**到内存                          |
-| **SRAM**     | 静态 RAM（内存）      | ✅ 可读写💡断电丢失 | 芯片**片内集成**               | 小 KB~ 几百 KB | 极速临时内存、栈、缓存、DDR 未就绪前唯一可用内存 | Mask ROM、SPL**前期全程依赖**；DDR 初始化前专用              |
-| **DDR**      | DRAM 动态 RAM（内存） | ✅ 可读写💡断电丢失 | 芯片**外接**颗粒               | 超大 GB 级     | 系统主内存、运行 U-Boot/OpenSBI/Linux 内核       | SPL**初始化 DDR 之后**，所有后续程序全跑在这里，起始地址默认 **0x80000000** |
-
-
+| 器件         | 本质类型     | 可否擦写         | 位置                           | 容量           | 核心作用                                         | 启动阶段用到时机                                             |
+| ------------ | ------------ | ---------------- | ------------------------------ | -------------- | ------------------------------------------------ | ------------------------------------------------------------ |
+| **Mask ROM** | 只读固化 ROM | ❌ 出厂永久不可改 | 芯片**片内**                   | 很小 KB 级     | 上电第一条指令、固化第一级启动代码               | **上电最先执行**，整个启动链起点                             |
+| **Flash**    | 闪存         | ✅                | 大多**片外**（也有片内 Flash） | 大 MB/GB 级    | 存放 SPL、U-Boot、设备树、Linux 内核、文件系统   | Mask ROM/SPL 从中**加载程序**到内存                          |
+| **SRAM**     | 内存         | ✅                | 芯片**片内集成**               | 小 KB~ 几百 KB | 极速临时内存、栈、缓存、DDR 未就绪前唯一可用内存 | Mask ROM、SPL**前期全程依赖**；DDR 初始化前专用              |
+| **DDR**      | 内存         | ✅                | 芯片**外接**颗粒               | 超大 GB 级     | 系统主内存、运行 U-Boot/OpenSBI/Linux 内核       | SPL**初始化 DDR 之后**，所有后续程序全跑在这里，起始地址默认 **0x80000000** |
 
 
 
 
 
-
-
-# 各阶段功能解读
-
-## ROM
-
-此时DRAM尚未初始化，因此使用的是ROM自带的存储DTIM（地址例如：0x1000、0x20000000）。而0x80000000这个是DRAM的地址，只有内存初始化之后才能使用。
-
-
-
-## loader
-
-## runtime
-
-## bootloader
 
 
 
