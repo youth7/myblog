@@ -1,5 +1,7 @@
 # 使用C语言实现day2的功能
 
+完整代码见：https://github.com/youth7/write_rvos_with_c_in_n_days/tree/day2
+
 本章的任务，是在day1的基础上，使用C语言（`kernel.c`）来实现剩余的功能，而汇编语言（`start.s`）仅仅做初始化和加载工作。
 
 ## 实现`start.s`和`kernel.c`
