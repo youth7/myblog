@@ -41,7 +41,40 @@
 
 
 
+
+
+
+
+
+
+
+
 # 寄存器列表
+
+## 寄存器映射表
+
+
+
+| A2   | A1   | A0   | 读操作下的寄存器         | 写操作下的寄存器          |
+| ---- | ---- | ---- | ------------------------ | ------------------------- |
+| 0    | 0    | 0    | RHR                      | THR                       |
+| 0    | 0    | 0    | N/A                      | DLL（当DLAB=1时）         |
+| 0    | 0    | 1    | N/A                      | IER                       |
+| 0    | 0    | 1    | N/A                      | DLM（当DLAB=1时）         |
+| 0    | 1    | 0    | ISR                      | FCR                       |
+| 0    | 1    | 1    | N/A                      | LCR                       |
+| 1    | 0    | 0    | N/A                      | MCR                       |
+| 1    | 0    | 1    | LSR                      | N/A                       |
+| 1    | 1    | 0    | MSR                      | N/A                       |
+| 1    | 1    | 1    | Scratchpad Register Read | Scratchpad Register Write |
+
+
+
+
+
+
+
+
 
 ## LSR(Line Status Register)
 
