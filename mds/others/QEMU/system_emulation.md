@@ -88,7 +88,7 @@ QEMU的两种模式：
 
 * graphical frontends的快捷键见[这里](https://www.QEMU.org/docs/master/system/keys.html)
 
-* character backend multiplexer的快捷键见[这里](https://www.QEMU.org/docs/master/system/mux-chardev.html)（这里能使用的命令都是用`Ctrl-a`作为前缀转义过的，似乎是为了区别QEMU monitor中可用的命令，常用的有：
+* character backend multiplexer的快捷键见[这里](https://www.QEMU.org/docs/master/system/mux-chardev.html)
 
   | Key Sequence  | Action                                                       |
   | ------------- | ------------------------------------------------------------ |
@@ -100,13 +100,39 @@ QEMU的两种模式：
   | Ctrl+a c      | Rotate between the frontends connected to the multiplexer (usually this switches between the monitor and the console) |
   | Ctrl+a Ctrl+a | Send the escape character to the frontend                    |
 
-  
 
+> During emulation, if you are using a character backend multiplexer (which is the default if you are using -nographic) then several commands are available via an escape sequence. These key sequences all start with an escape character, which is Ctrl+a by default, but can be changed with -echr. The list below assumes you’re using the default. 
 
+> **Backend**s are how QEMU deals with the guest’s data, for example :how a block device is stored, how network devices see the network or **how a serial device is directed to the outside world**.
+
+> **A multiplexer is a “1:N” device**, and here the “1” end is your specified chardev backend, and the “N” end is the various parts of QEMU that can talk to a chardev. 
+>
+> If you create a chardev with `id=myid` and `mux=on`, QEMU will create a multiplexer with your specified ID, and you can then configure **multiple front ends to use that chardev ID for their input/output**. 
+>
+> Up to four different front ends can be connected to a single multiplexed chardev. (**Without multiplexing enabled, a chardev can only be used by a single front end**.) 
+>
+> For instance you could use this to allow **a single stdio chardev to be used by two serial ports and the QEMU monitor**:
+>
+> ```shell
+> -chardev stdio,mux=on,id=char0 \
+> -object monitor-hmp,id=hmp0,chardev=char0 \
+> -serial chardev:char0 \
+> -serial chardev:char0
+> ```
+>
+> 
 
 
 
 ### QEMU monitor
+
+> * 仿真器 (Emulator)：这是QEMU最核心的部分，负责模拟出一个完整的、可运行的计算机系统。它包含了实现硬件虚拟化的所有底层功能。
+> 
+>* 监控器 (Monitor)：监控器是用户与运行中的虚拟机进行交互的接口，你可以通过它来“窥探”和控制虚拟机内部的状态
+
+
+
+
 
 **QEMU monitor的作用：可以给QEMU emulator发送复杂的命令，包括：**
 

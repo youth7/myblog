@@ -83,65 +83,77 @@ gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调�
 
 
 
-`-Ttext=0x80000000`非常重要，如果缺少这个选项，编译器会为`.text`节生成另外一个地址00010074
+关于QEMU加载并运行用户编写的首行代码有3个关键点：
 
-```bash
-# 不加-Ttext=0x80000000参数
+1. QEMU会跳转到`0x1000`执行rom code，rom code随后跳转到`0x80000000`执行用户代码。
+2. 必须把用户代码加载`0x80000000`。
+3. 编译链接时候必须已`0x80000000`作为基地址（这一点通过`-Ttext`或者后续的链接脚本来指定）
 
-Section Headers:
-  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
-  [ 0]                   NULL            00000000 000000 000000 00      0   0  0
-  [ 1] .text             PROGBITS        00010074 000074 000008 00  AX  0   0  4
-  ......
+其中第二点是通过`-Ttext=0x80000000`实现，编译链接时候会把相关信息写入ELF文件，然后QEMU根据ELF中的信息来加载。
 
-    
-# 加-Ttext=0x80000000参数
-Section Headers:
-  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
-  [ 0]                   NULL            00000000 000000 000000 00      0   0  0
-  [ 1] .text             PROGBITS        80000000 001000 000008 00  AX  0   0  4
-  ......
+
+
+通过对比修改`-Ttext`的值来确认这一点，首先是使用`-Ttext=0x80000080`，然后编译链接调试：
+
+```shell
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000080, +30'  start.elf
+Reading symbols from start.elf...
+Remote debugging using localhost:1234
+warning: Architecture rejected target-supplied description
+0x00001000 in ?? ()
+Dump of assembler code from 0x80000080 to 0x8000009e:
+   0x80000080 <_start+0>:       addi    a0,a0,291
+   0x80000084 <_start+4>:       j       0x80000080 <_start>
+   0x80000088:  unimp
+   0x8000008a:  unimp
+   0x8000008c:  unimp
+   0x8000008e:  unimp
+   0x80000090:  unimp
+   0x80000092:  unimp
+   0x80000094:  unimp
+   0x80000096:  unimp
+   0x80000098:  unimp
+   0x8000009a:  unimp
+   0x8000009c:  unimp
+End of assembler dump.
+(gdb) 
 ```
 
-从QEMU的[源文件](https://github.com/qemu/qemu/blob/master/hw/riscv/virt.c)来看：
 
-```c
-static const MemMapEntry virt_memmap[] = {
-    [VIRT_DEBUG] =        {        0x0,         0x100 },
-    [VIRT_MROM] =         {     0x1000,        0xf000 },
-    [VIRT_TEST] =         {   0x100000,        0x1000 },
-  ...
-};
+
+然后将值改为`-Ttext=0x80000000`，再编译链接调试：
+
+```shell
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000000, +30'  start.elf
+Reading symbols from start.elf...
+Remote debugging using localhost:1234
+warning: Architecture rejected target-supplied description
+0x00001000 in ?? ()
+Dump of assembler code from 0x80000000 to 0x8000001e:
+   0x80000000 <_start+0>:       addi    a0,a0,291
+   0x80000004 <_start+4>:       j       0x80000000 <_start>
+   0x80000008:  unimp
+   0x8000000a:  unimp
+   0x8000000c:  unimp
+   0x8000000e:  unimp
+   0x80000010:  unimp
+   0x80000012:  unimp
+   0x80000014:  unimp
+   0x80000016:  unimp
+   0x80000018:  unimp
+   0x8000001a:  unimp
+   0x8000001c:  unimp
+End of assembler dump.
+(gdb) 
 ```
 
-地址`0x00010074`属于`VIRT_TEST`，这个区域的内存应该是不能被直接访问的。
+可见代码被加载到内存中不同的地方。
 
 
 
-其实**无论是否添加`-Ttext=0x80000000`选项，QEMU都会把start.elf的`.text`加载到地址`0x80000000中`**（可以编译不同版本的start.elf，然后在`0x80000000`打断点来确认）。唯一不同的是，如果不加`-Ttext=0x80000000`，则`_start`的地址会变成`0x00010074`（`.text`节的首地址），此时会触发两个错误：
-
-1. 该地址在QEMU中是不可访问的。
-2. 想要实现无限循环，`_start`必须等于入口地址`0x80000000`，而`0x00010074`明显不符合。
-
-```bash
-Breakpoint 2, 0x80000000 in ?? ()
-(gdb) l
-1       .global _start
-2       _start:
-3               addi a0, a0, 1
-4               j _start
-5
-(gdb) p _start
-Cannot access memory at address 0x10074
-(gdb) p &_start
-$3 = (<text variable, no debug info> *) 0x10074 <_start>
-```
-
-> 注意gdb的`p`命令是打印变量的值，如果需要打印变量的地址需要使用`&_start`
 
 
-
-这里需要注意两个问题，不要混淆它们：
+这里需要注意两个问题不要混淆：
 
 1. 编译时的内存布局：即编译时，compiler以程序运行时的内存布局来确定各个符号的值。
 2. 运行阶段的内存布局：必须把ELF文件加载到适合的位置，**满足编译时对地址的期望，使得编译时和运行时的地址视图是一致的（重要：⚠️⚠️⚠️⚠️）**。
