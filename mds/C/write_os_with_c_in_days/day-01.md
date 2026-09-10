@@ -89,65 +89,13 @@ gcc中和C相关的选项，简单来说即告诉编译器要保持函数的调�
 2. 必须把用户代码加载`0x80000000`。
 3. 编译链接时候必须已`0x80000000`作为基地址（这一点通过`-Ttext`或者后续的链接脚本来指定）
 
-其中第二点是通过`-Ttext=0x80000000`实现，编译链接时候会把相关信息写入ELF文件，然后QEMU根据ELF中的信息来加载。
+其中第二点是通过`-Ttext=0x80000000`实现，**编译链接时候会把地址相关信息写入ELF文件，然后QEMU将其加载到指定的内存位置**，在文章末尾我们我们会进行这个对比。
 
 
 
-通过对比修改`-Ttext`的值来确认这一点，首先是使用`-Ttext=0x80000080`，然后编译链接调试：
-
-```shell
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000080, +30'  start.elf
-Reading symbols from start.elf...
-Remote debugging using localhost:1234
-warning: Architecture rejected target-supplied description
-0x00001000 in ?? ()
-Dump of assembler code from 0x80000080 to 0x8000009e:
-   0x80000080 <_start+0>:       addi    a0,a0,291
-   0x80000084 <_start+4>:       j       0x80000080 <_start>
-   0x80000088:  unimp
-   0x8000008a:  unimp
-   0x8000008c:  unimp
-   0x8000008e:  unimp
-   0x80000090:  unimp
-   0x80000092:  unimp
-   0x80000094:  unimp
-   0x80000096:  unimp
-   0x80000098:  unimp
-   0x8000009a:  unimp
-   0x8000009c:  unimp
-End of assembler dump.
-(gdb) 
-```
 
 
 
-然后将值改为`-Ttext=0x80000000`，再编译链接调试：
-
-```shell
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000000, +30'  start.elf
-Reading symbols from start.elf...
-Remote debugging using localhost:1234
-warning: Architecture rejected target-supplied description
-0x00001000 in ?? ()
-Dump of assembler code from 0x80000000 to 0x8000001e:
-   0x80000000 <_start+0>:       addi    a0,a0,291
-   0x80000004 <_start+4>:       j       0x80000000 <_start>
-   0x80000008:  unimp
-   0x8000000a:  unimp
-   0x8000000c:  unimp
-   0x8000000e:  unimp
-   0x80000010:  unimp
-   0x80000012:  unimp
-   0x80000014:  unimp
-   0x80000016:  unimp
-   0x80000018:  unimp
-   0x8000001a:  unimp
-   0x8000001c:  unimp
-End of assembler dump.
-(gdb) 
-```
-
-可见代码被加载到内存中不同的地方。
 
 
 
@@ -181,13 +129,23 @@ End of assembler dump.
 >   * enter a trap loop if the OTP is not programmed,
 >   * or start running the OTP code
 
-即对于RISCV的标准启动流程：硬件只实现了Mask ROM阶段（地址是`0x1000`），SPL→U-Boot阶段（地址`0x80000000`）不靠硬件实现，所以在技术手册中没被提及。
+即对于RISCV的标准启动流程：硬件只实现了Mask ROM阶段（地址是`0x1000`），**SPL→U-Boot阶段（地址`0x80000000`）不靠硬件实现，所以在技术手册中没被提及**。
 
 
 
 
 
 ## 使用QEMU加载并运行
+
+不调试，直接运行：
+
+```shell
+qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf 
+```
+
+
+
+启动并进入调试模式然后挂起
 
 ```bash
 qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf -s -S
@@ -199,9 +157,7 @@ qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf
 
 
 
-
-
-## QEMU启动阶段
+## RISCV的多阶段启动探索
 
 
 
@@ -244,7 +200,7 @@ Dump of assembler code from 0x1000 to 0x101e:
 End of assembler dump.
 ```
 
-这就是第一阶段的启动代码，可见第一条代码的地址就是`0x1000`，可以看到最后通过指令`jr t0`进行跳转。对这条指令进行断点，然后看一下寄存器`t0`的值：
+这就是第一阶段的启动代码（即Rom Code），可见第一条代码的地址就是`0x1000`，可以看到最后通过指令`jr t0`进行跳转。对这条指令进行断点，然后看一下寄存器`t0`的值：
 
 ```bash
 (gdb) b *0x00001014
@@ -257,27 +213,11 @@ Breakpoint 1, 0x00001014 in ?? ()
 $1 = 0x80000000
 ```
 
-**可以看到第一阶段结束之后，BIOS会将控制权交给位于`0x80000000`的代码，而我们的内核代码必须精确地加载到这个地址**
+**可以看到第一阶段结束之后，ROM code会将控制权交给位于`0x80000000`的代码，而我们的内核代码必须精确地加载到这个地址**
 
 
 
 
-
-## 使用GDB进行调试
-
-```bash
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234' -ex 'b _start'  -ex 'display/z $$a0'   start.elf
-```
-
-
-
-
-
-## 不调试，直接运行二进制文件
-
-```bash
-qemu-system-riscv32 -nographic -smp 1 -machine virt -bios none -kernel start.elf 
-```
 
 
 
@@ -317,3 +257,66 @@ clean:
 make clean debug
 ```
 
+
+
+## 对比`-Ttext=`在不同地址值下的表现
+
+先将makefile中的地址改为`-Ttext=0x80000040`，然后按照上面的介绍进行编译链接调试：
+
+```shell
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000040, +30'  start.elf
+Reading symbols from start.elf...
+Remote debugging using localhost:1234
+warning: Architecture rejected target-supplied description
+0x00001000 in ?? ()
+Dump of assembler code from 0x80000040 to 0x8000005e:
+   0x80000040 <_start+0>:       addi    a0,a0,1
+   0x80000044 <_start+4>:       j       0x80000040 <_start>
+   0x80000048:  unimp
+   0x8000004a:  unimp
+   0x8000004c:  unimp
+   0x8000004e:  unimp
+   0x80000050:  unimp
+   0x80000052:  unimp
+   0x80000054:  unimp
+   0x80000056:  unimp
+   0x80000058:  unimp
+   0x8000005a:  unimp
+   0x8000005c:  unimp
+End of assembler dump.
+(gdb) 
+```
+
+在地址`0x80000040`处打上断点并显示汇编，和`loop.s`中的一致，证明代码被加载到了指定位置。
+
+
+
+
+
+再将makefile中的地址改为`-Ttext=0x80000000`，重复上述过程
+
+```shell
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000000, +30'  start.elf
+Reading symbols from start.elf...
+Remote debugging using localhost:1234
+warning: Architecture rejected target-supplied description
+0x00001000 in ?? ()
+Dump of assembler code from 0x80000000 to 0x8000001e:
+   0x80000000 <_start+0>:       addi    a0,a0,1
+   0x80000004 <_start+4>:       j       0x80000000 <_start>
+   0x80000008:  unimp
+   0x8000000a:  unimp
+   0x8000000c:  unimp
+   0x8000000e:  unimp
+   0x80000010:  unimp
+   0x80000012:  unimp
+   0x80000014:  unimp
+   0x80000016:  unimp
+   0x80000018:  unimp
+   0x8000001a:  unimp
+   0x8000001c:  unimp
+End of assembler dump.
+(gdb) 
+```
+
+可见代码被加载到`0x80000000`，证明`-Ttext`确实能够指导可执行文件的加载位置。
