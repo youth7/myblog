@@ -264,13 +264,12 @@ make clean debug
 先将makefile中的地址改为`-Ttext=0x80000040`，然后按照上面的介绍进行编译链接调试：
 
 ```shell
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000040, +30'  start.elf
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'x/8i 0x80000040'  start.elf
 Reading symbols from start.elf...
 Remote debugging using localhost:1234
 warning: Architecture rejected target-supplied description
 0x00001000 in ?? ()
-Dump of assembler code from 0x80000040 to 0x8000005e:
-   0x80000040 <_start+0>:       addi    a0,a0,1
+   0x80000040 <_start>: addi    a0,a0,1
    0x80000044 <_start+4>:       j       0x80000040 <_start>
    0x80000048:  unimp
    0x8000004a:  unimp
@@ -278,16 +277,12 @@ Dump of assembler code from 0x80000040 to 0x8000005e:
    0x8000004e:  unimp
    0x80000050:  unimp
    0x80000052:  unimp
-   0x80000054:  unimp
-   0x80000056:  unimp
-   0x80000058:  unimp
-   0x8000005a:  unimp
-   0x8000005c:  unimp
-End of assembler dump.
 (gdb) 
 ```
 
 在地址`0x80000040`处打上断点并显示汇编，和`loop.s`中的一致，证明代码被加载到了指定位置。
+
+> 注意：这里千万不能直接使用`list`或者`disassemble`之类的命令，因为它们显示的是**ELF文件里的内容**，不是**目标机内存里的内容！！！**。
 
 
 
@@ -296,13 +291,13 @@ End of assembler dump.
 再将makefile中的地址改为`-Ttext=0x80000000`，重复上述过程
 
 ```shell
-riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'disassemble 0x80000000, +30'  start.elf
+riscv64-unknown-elf-gdb -q -ex 'target remote localhost:1234'  -ex 'x/8i 0x80000000'   start.elf
 Reading symbols from start.elf...
 Remote debugging using localhost:1234
 warning: Architecture rejected target-supplied description
-0x00001000 in ?? ()
-Dump of assembler code from 0x80000000 to 0x8000001e:
-   0x80000000 <_start+0>:       addi    a0,a0,1
+_start () at loop.s:3
+3               addi a0, a0, 1
+=> 0x80000000 <_start>: addi    a0,a0,1
    0x80000004 <_start+4>:       j       0x80000000 <_start>
    0x80000008:  unimp
    0x8000000a:  unimp
@@ -310,12 +305,6 @@ Dump of assembler code from 0x80000000 to 0x8000001e:
    0x8000000e:  unimp
    0x80000010:  unimp
    0x80000012:  unimp
-   0x80000014:  unimp
-   0x80000016:  unimp
-   0x80000018:  unimp
-   0x8000001a:  unimp
-   0x8000001c:  unimp
-End of assembler dump.
 (gdb) 
 ```
 
