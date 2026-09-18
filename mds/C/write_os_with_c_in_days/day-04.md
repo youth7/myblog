@@ -86,6 +86,103 @@ PROVIDE(...)
 
 
 
+链接脚本定义好各种地址之后，需要在`mem.S`中将其重新导出给C语言侧使用。
+
+```asm
+.section .rodata #将下面所有符号都存到.rodata中
+/*
+将符号设置为global类型，使得外部可见
+标签HEAP_START代表一个内存地址，在目标文件中就是一个符号
+在这个地址地方开辟一个内存空间，长度4个字节，初始值为符号_heap_start（os.ld中定义）的值，即HEAP_START存的是一个地址的值
+*/
+.global HEAP_START
+HEAP_START: .word  _heap_start
+```
+
+
+
+
+
+在`page.c`语言中我们这样使用：
+
+```C
+extern unsigned int HEAP_START;
+extern unsigned int HEAP_SIZE;
+extern unsigned int TEXT_START;
+extern unsigned int TEXT_END;
+extern unsigned int DATA_START;
+extern unsigned int DATA_END;
+extern unsigned int RODATA_START;
+extern unsigned int RODATA_END;
+extern unsigned int BSS_START;
+extern unsigned int BSS_END;
+```
+
+
+
+**注意`_heap_start`和`HEAP_START`是不一样的**，链接后先查看符号表：
+
+```bash
+ readelf -s os.elf | grep -i heap_start
+    43: 800013e8     0 NOTYPE  GLOBAL DEFAULT    4 _heap_start
+    56: 80000c3a     0 NOTYPE  GLOBAL DEFAULT    2 HEAP_START
+```
+
+* `_heap_start`所属节的index是3（`.data`），是在链接文件中直接定义的符号。值为`800013e8`，**表示的是堆内存的起始地址**，
+* `HEAP_START`所属节的index是2（`.rodata`），是在汇编代码中定义的符号。值为`80000c3a`，**这是一个内存地址，这个内存地址中存了`_heap_start`的值**
+
+
+
+
+
+> 注意，在链接文件中直接定义的符号例如`_heap_start`，在C中要当做一个地址来处理，不能直接用变量接收，例如：
+>
+> ```
+> extern char _heap_start;
+> int x = _heap_start;        // ❌ 编译器会去读 0x800013e8 处的内容，不是 0x800013e8 本身
+> int y = &_heap_start;       // ✔️ 编译器会把地址的值（即符号_heap_start的值）赋给y，即0x800013e8
+> ```
+> 可以将`kernel.c`改成下面这样：
+>
+> ```c
+> // 声明uart.c中定义的各种函数，他们后续会被链接进来
+> extern void uart_init(void);
+> extern void uart_puts(char *c);
+> extern int printf(const char* s, ...);
+> extern int HEAP_START;
+> extern int _heap_start;
+> 
+> void start_kernel(void)
+> {
+> 	//留一个特殊数值，debug时候回来验证
+> 	int a = 0x709394;
+> 	//初始化uart，qemu中如果不初始化其实也能正常运行，但是在真机环境中必须初始化
+> 	uart_init();
+> 	//输出内容
+> 	printf("heap addr is %x %x %x\n",  &HEAP_START, HEAP_START, &_heap_start);
+> 	uart_puts("hello riscv!!!!!!!!!!!!!!!\n");
+> 	while (1) {}; 
+> }
+> ```
+>
+> 运行后的输出为：
+>
+> ```bash
+> ......
+> link done...
+> start to run...
+> heap addr is 80000c3a 800013e8 800013e8
+> hello riscv!!!!!!!!!!!!!!!
+> ```
+>
+> 符合我们上面的描述
+
+
+
+
+
+
+
 
 
 

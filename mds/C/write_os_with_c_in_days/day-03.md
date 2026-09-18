@@ -91,3 +91,56 @@ C语言中，可以直接对某个内存地址进行读写，地址值可以不�
 int c = *((int *) 0x00001234)
 ```
 
+
+
+## `printf.c`
+
+`uart.c`只是实现了简单的输出，为了方便后续调试中使用类似标准库中的`printf`功能，我们需要手动实现这个函数。它的原理比较简单，具体实现参考[这里](https://github.com/cccriscv/mini-riscv-os/blob/master/05-Preemptive/lib.c)。
+
+
+
+修改makefile文件，将`printf.c`的相关内容加入编译和链接，并在`kernel.c`中调用
+
+```c
+// 声明uart.c中定义的各种函数，他们后续会被链接进来
+extern void uart_init(void);
+extern void uart_puts(char *c);
+extern int printf(const char* s, ...);
+
+void start_kernel(void)
+{
+	//留一个特殊数值，debug时候回来验证
+	int a = 0x709394;
+	//初始化uart，qemu中如果不初始化其实也能正常运行，但是在真机环境中必须初始化
+	uart_init();
+	//输出内容
+	printf("hello printf active %x\n", 0xabcdef);
+	uart_puts("hello riscv!!!!!!!!!!!!!!!\n");
+	while (1) {}; 
+}
+```
+
+
+
+然后运行命令`make run`，输出符合预期：
+
+```bash
+make run
+start to compile...
+kernel.c: In function 'start_kernel':
+kernel.c:9:13: warning: unused variable 'a' [-Wunused-variable]
+    9 |         int a = 0x709394;
+      |             ^
+uart.c: In function 'uart_puts':
+uart.c:70:9: warning: unused variable 'i' [-Wunused-variable]
+   70 |     int i = 0x123456;
+      |         ^
+compile done
+start to link...
+/home/dmai/workspace/x-gcc/riscv64-unknown-elf.gcc-12.1.0/bin/../lib/gcc/riscv64-unknown-elf/12.1.0/../../../../riscv64-unknown-elf/bin/ld: warning: os.elf has a LOAD segment with RWX permissions
+link done...
+start to run...
+hello printf active 00abcdef
+hello riscv!!!!!!!!!!!!!!!
+```
+
