@@ -19,3 +19,9 @@
 sudo apt install gcc-riscv64-linux-gnu g++-riscv64-linux-gnu
 ```
 
+然后再安装GDB
+
+```bash
+sudo apt install gdb-multiarch
+```
+
