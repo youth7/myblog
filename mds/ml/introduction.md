@@ -12,7 +12,7 @@
 
 ## 人工智能、机器学习、深度学习、统计学习的关系
 
-![introduction](/imgs/introduction.jpg)
+![introduction](../../imgs/introduction.jpg)
 ## 统计学习的分类
   * 监督学习：例如线性回归、逻辑回归、SVM、决策树
   * 非监督学习：

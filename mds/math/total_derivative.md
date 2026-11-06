@@ -3,7 +3,7 @@
 根据经验，二元函数的全微微分应该也有类似的几何意义，很多资料都给出了结论但是没有给出推导过程，查找了很多资料之后发现知乎上[求解全微分的意义？最好感性一点的认识](https://www.zhihu.com/question/31464934/answer/152231899)有关于这个问题的一个详细讨论，其中一个答案给出了一个直观的推导过程。
 
 先上图  
-![total_derivative](/imgs/total_derivative.jpg)
+![total_derivative](../../imgs/total_derivative.jpg)
 
 其实这张图的立体效果非常一般，毕竟是简单的二维图，单看图很难看出什么东西，但是根据图和上面的推导，我们很容易就可以看出$dz$的几何意义，它的推导过程如下：
 
@@ -29,4 +29,4 @@
 
 
 其实我觉得这张图更加准确表达了全微分的集合意义  
-![total_derivative2](/imgs/total_derivative2.jpg)
+![total_derivative2](../../imgs/total_derivative2.jpg)
